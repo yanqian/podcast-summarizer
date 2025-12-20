@@ -3,7 +3,7 @@
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This template is filled in by the `/speckit.plan` command.
 
 ## Summary
 
@@ -31,7 +31,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Code Quality: planned modules are cohesive, ownership is clear, lint/format enforcement noted, and new
+  dependencies are justified.
+- Testing Discipline: unit, integration/contract, and regression tests are enumerated for the scope with a
+  path to ≥85% coverage of touched code.
+- UX Consistency: CLI/API contracts, flags, and error patterns align with existing behavior; UX acceptance
+  notes are listed.
+- Performance & Efficiency: measurable budgets are defined (default p95 <200ms for core operations; document
+  throughput/latency for long-running or background work) plus instrumentation/benchmark approach.
+- Definition of Done: plan states evidence for logs/observability, documentation updates, and release
+  verification notes.
 
 ## Project Structure
 

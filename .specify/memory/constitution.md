@@ -1,50 +1,66 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: N/A → 1.0.0
+Modified principles: New → Code Quality & Maintainability; New → Testing Discipline; New → User Experience Consistency; New → Performance & Efficiency
+Added sections: Baseline Engineering Standards; Workflow & Review Process
+Removed sections: Placeholder Principle 5
+Templates requiring updates: ✅ .specify/templates/plan-template.md; ✅ .specify/templates/spec-template.md; ✅ .specify/templates/tasks-template.md
+Follow-up TODOs: None
+-->
+
+# Podcast Summarizer Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### Code Quality & Maintainability
+Code must remain small, cohesive units with clear ownership, automated formatting and linting must pass
+pre-merge, and every change requires peer review plus concise inline comments where logic is non-obvious.
+Dependencies must be justified, pinned, and removed when unused; public interfaces demand docs updates
+alongside code. Rationale: disciplined structure keeps the summarizer reliable and easy to evolve.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### Testing Discipline
+Every change must add or update automated tests that fail before implementation and pass after: unit tests
+for logic branches, integration/contract tests for external I/O, and regression tests for discovered bugs.
+Touched code must reach at least 85% coverage, and CI must block merges on failing or missing tests.
+Rationale: fast, repeatable feedback prevents regressions in summarization quality.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### User Experience Consistency
+All user-facing outputs (CLI, API responses, docs) must follow a consistent interaction model: predictable
+flags/arguments, stable output schemas, actionable errors with remediation steps, and accessibility-aware
+text (clear language, no ambiguous abbreviations). UX acceptance notes belong in specs and PRs to confirm
+that behavior matches existing patterns. Rationale: consistent flows keep the product trustworthy.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### Performance & Efficiency
+Each feature must declare measurable performance budgets in its spec (default: p95 of core operations
+under 200ms outside long-running model inference; background jobs document throughput/latency targets).
+Code must include lightweight instrumentation or benchmarks to verify budgets, and any regression over 5%
+from baseline needs remediation or an approved exception. Rationale: predictable performance protects user
+experience and cost.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+## Baseline Engineering Standards
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+- Definition of Done: lint/format clean, principle-aligned tests added and passing, UX notes verified, and
+  performance checks executed or benchmark evidence provided.
+- Observability: add structured logs around external calls and performance-critical paths to support the
+  performance and testing principles.
+- Documentation: update usage examples, CLI/API help, and changelog entries alongside functional changes.
+- Risk control: isolate experiments behind flags, and record fallback behavior for external dependencies.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Workflow & Review Process
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Planning: every feature needs a spec and implementation plan that map requirements to tests, UX checks,
+  and performance budgets before coding starts.
+- Reviews: PRs must cite how each principle is met (tests added, UX consistency check, performance evidence)
+  and must not merge with failing automation.
+- Releases: include a brief verification note summarizing test results, UX validation, and performance
+  measurements for the change scope.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes conflicting practices. Amendments require a PR describing the change, the
+version bump rationale (semver), and how existing templates/docs stay in sync. Versioning follows: MAJOR
+for principle removals or incompatible rewrites, MINOR for new principles or material expansions, PATCH for
+clarifications. Compliance is reviewed at planning (Constitution Check), PR review (evidence linked), and
+release sign-off (results recorded).
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-11-29 | **Last Amended**: 2025-11-29

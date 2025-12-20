@@ -95,6 +95,17 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### Quality & Engineering Constraints
+
+- **Q-001**: Tests MUST be defined for each story (unit + integration/contract) with a path to ≥85% coverage
+  of touched code; note any regression tests added.
+- **Q-002**: UX expectations MUST be explicit: CLI/API flags, output schema, error formats, and accessibility
+  notes to keep interactions consistent.
+- **Q-003**: Performance budgets MUST be measurable (default p95 <200ms for core operations; specify targets
+  for long-running/background work) and include how they will be measured.
+- **Q-004**: Observability MUST cover structured logs or metrics around external calls and performance-
+  critical paths to validate budgets and diagnose issues.
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Podcast Summary API
+  version: 0.1.0
+paths:
+  /api/podcasts/ingest:
+    post:
+      summary: Submit a podcast URL for ingestion (use existing transcript if present, otherwise transcribe and summarize)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+              required: [url]
+      responses:
+        "202":
+          description: Ingestion job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "400":
+          description: Invalid or unreachable URL
+        "409":
+          description: Job already in progress for this URL
+  /api/jobs/{jobId}:
+    get:
+      summary: Get status for a processing job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+        "404":
+          description: Job not found
+  /api/podcasts/{podcastId}/view:
+    get:
+      summary: Retrieve paragraph-aligned transcript and summaries
+      parameters:
+        - name: podcastId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transcript paragraphs with aligned summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptWithSummaries"
+        "404":
+          description: Podcast not found
+  /api/podcasts/{podcastId}/export:
+    get:
+      summary: Export transcript and summaries as text files (links or inline)
+      parameters:
+        - name: podcastId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportBundle"
+        "404":
+          description: Podcast not found
+components:
+  schemas:
+    JobAccepted:
+      type: object
+      properties:
+        jobId:
+          type: string
+        podcastId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+      required: [jobId, podcastId, status]
+    JobStatus:
+      type: object
+      properties:
+        jobId:
+          type: string
+        podcastId:
+          type: string
+        type:
+          type: string
+          enum: [ingest, transcribe, summarize]
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMs:
+          type: integer
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+      required: [jobId, podcastId, type, status]
+    TranscriptWithSummaries:
+      type: object
+      properties:
+        podcastId:
+          type: string
+        title:
+          type: string
+        paragraphs:
+          type: array
+          items:
+            type: object
+            properties:
+              paragraphId:
+                type: string
+              orderIndex:
+                type: integer
+              text:
+                type: string
+              timestampSeconds:
+                type: number
+                nullable: true
+              summary:
+                type: string
+            required: [paragraphId, orderIndex, text, summary]
+      required: [podcastId, paragraphs]
+    ExportBundle:
+      type: object
+      properties:
+        podcastId:
+          type: string
+        transcriptText:
+          type: string
+        summaryText:
+          type: string
+      required: [podcastId, transcriptText, summaryText]

@@ -1,0 +1,68 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors/IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+.codex/
+
+# Environment and secrets
+.env
+.env.*
+.envrc
+.python-version
+
+# Node.js
+node_modules/
+dist/
+build/
+.next/
+out/
+.cache/
+.parcel-cache/
+.turbo/
+bun.lockb
+.npm/
+.pnpm-store/
+.eslintcache
+*.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend tooling
+.vite/
+*.vitest-tmp
+coverage/
+.nyc_output/
+cypress/videos/
+cypress/screenshots/
+playwright-report/
+test-results/
+
+# Go
+bin/
+vendor/
+*.exe
+*.test
+*.out
+.gocache/
+*.prof
+*.pprof
+profile.out
+trace.out
+
+# Coverage and reports
+*.lcov
+*.coverprofile
+
+# Data and temp
+*.log
+*.pid
+*.seed
+tmp/
