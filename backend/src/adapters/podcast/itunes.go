@@ -42,7 +42,9 @@ func (c *ItunesClient) Lookup(trackID string) (*domain.PodcastMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("lookup failed: %s", resp.Status)
 	}
@@ -76,7 +78,9 @@ func (c *ItunesClient) LookupEpisode(showID, episodeID string) (*domain.PodcastM
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("lookup failed: %s", resp.Status)
 	}
