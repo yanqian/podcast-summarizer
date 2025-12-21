@@ -33,7 +33,9 @@ func (c *HTTPClient) TranscribeFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -44,7 +46,9 @@ func (c *HTTPClient) TranscribeFile(path string) (string, error) {
 	if _, err := io.Copy(part, f); err != nil {
 		return "", err
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return "", err
+	}
 
 	req, err := http.NewRequest(http.MethodPost, c.URL, body)
 	if err != nil {
@@ -59,7 +63,9 @@ func (c *HTTPClient) TranscribeFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("transcription failed: %s (%s)", resp.Status, string(b))
