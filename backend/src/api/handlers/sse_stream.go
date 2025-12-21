@@ -34,9 +34,18 @@ func StreamHandler(mgr *jobs.Manager) http.HandlerFunc {
 		}
 		for msg := range ch {
 			// SSE requires data prefix and double newline terminator.
-			w.Write([]byte("data: "))
-			w.Write(msg)
-			w.Write([]byte("\n\n"))
+			if _, err := w.Write([]byte("data: ")); err != nil {
+				log.Printf("sse write prefix failed job=%s err=%v", jobID, err)
+				return
+			}
+			if _, err := w.Write(msg); err != nil {
+				log.Printf("sse write body failed job=%s err=%v", jobID, err)
+				return
+			}
+			if _, err := w.Write([]byte("\n\n")); err != nil {
+				log.Printf("sse write suffix failed job=%s err=%v", jobID, err)
+				return
+			}
 			flusher.Flush()
 		}
 	}

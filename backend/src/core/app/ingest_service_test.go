@@ -4,10 +4,10 @@ import "testing"
 
 func TestExtractIDs(t *testing.T) {
 	tests := []struct {
-		name          string
-		url           string
-		wantTrackID   string
-		wantShowID    string
+		name        string
+		url         string
+		wantTrackID string
+		wantShowID  string
 	}{
 		{
 			name:        "apple podcasts episode url",

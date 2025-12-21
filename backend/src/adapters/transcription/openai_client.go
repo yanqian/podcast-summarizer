@@ -31,7 +31,9 @@ func (t *OpenAITranscriber) TranscribeFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -60,7 +62,9 @@ func (t *OpenAITranscriber) TranscribeFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("openai transcription failed: %s (%s)", resp.Status, string(b))

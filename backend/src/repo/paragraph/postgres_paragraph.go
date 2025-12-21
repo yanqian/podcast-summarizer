@@ -28,7 +28,9 @@ ON CONFLICT (podcast_id, order_index) DO UPDATE SET text=EXCLUDED.text`
 		batch.Queue(q, podcastID, p.OrderIndex, p.Text)
 	}
 	br := r.pool.SendBatch(context.Background(), batch)
-	defer br.Close()
+	defer func() {
+		_ = br.Close()
+	}()
 	for i := 0; i < len(paragraphs); i++ {
 		if _, err := br.Exec(); err != nil {
 			return fmt.Errorf("save transcript: %w", err)
@@ -49,7 +51,9 @@ ON CONFLICT (transcript_paragraph_id) DO UPDATE SET summary_text=EXCLUDED.summar
 		batch.Queue(q, podcastID, s.OrderIndex, s.Text)
 	}
 	br := r.pool.SendBatch(context.Background(), batch)
-	defer br.Close()
+	defer func() {
+		_ = br.Close()
+	}()
 	for i := 0; i < len(summaries); i++ {
 		if _, err := br.Exec(); err != nil {
 			return fmt.Errorf("save summaries: %w", err)

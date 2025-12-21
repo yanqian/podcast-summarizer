@@ -198,7 +198,11 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 		default:
 			log.Printf("%s lock acquired key=%s", logPrefix, lockKey)
 		}
-		defer m.lock.Release(jobCtx, lockKey)
+		defer func() {
+			if err := m.lock.Release(jobCtx, lockKey); err != nil {
+				log.Printf("%s lock release failed key=%s err=%v", logPrefix, lockKey, err)
+			}
+		}()
 
 		paragraphs, originalPath, chunkPaths, err := m.transcript.Provide(jobCtx, audioURL, transcriptURL)
 		if err != nil || len(paragraphs) == 0 {

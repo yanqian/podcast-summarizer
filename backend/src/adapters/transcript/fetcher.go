@@ -24,7 +24,9 @@ func (f *Fetcher) Fetch(url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("failed to fetch transcript")
 	}
