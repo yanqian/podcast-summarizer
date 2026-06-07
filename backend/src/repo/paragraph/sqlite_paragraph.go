@@ -75,7 +75,9 @@ ORDER BY tp.order_index;`
 	if err != nil {
 		return nil, fmt.Errorf("sqlite get aligned: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var result []domain.ParagraphWithSummary
 	for rows.Next() {

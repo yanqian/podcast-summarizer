@@ -67,7 +67,9 @@ LIMIT ?;`
 	if err != nil {
 		return nil, fmt.Errorf("sqlite list sources: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var items []domain.PodcastSource
 	for rows.Next() {

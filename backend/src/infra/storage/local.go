@@ -35,13 +35,17 @@ func (u *LocalUploader) Upload(ctx context.Context, key string, localPath string
 	if err != nil {
 		return "", fmt.Errorf("open upload source: %w", err)
 	}
-	defer src.Close()
+	defer func() {
+		_ = src.Close()
+	}()
 
 	out, err := os.Create(dest)
 	if err != nil {
 		return "", fmt.Errorf("create local storage object: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+	}()
 
 	if _, err := io.Copy(out, src); err != nil {
 		return "", fmt.Errorf("copy local storage object: %w", err)

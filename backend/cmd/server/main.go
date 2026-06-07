@@ -29,7 +29,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("sqlite init failed: %v", err)
 		}
-		defer sqliteDB.Close()
+		defer func() {
+			_ = sqliteDB.Close()
+		}()
 		deps.SQLite = sqliteDB
 		log.Printf("using sqlite storage at %s", cfg.SQLitePath)
 	case "postgres":

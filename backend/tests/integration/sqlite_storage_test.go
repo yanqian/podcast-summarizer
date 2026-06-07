@@ -16,7 +16,9 @@ func TestSQLiteStoragePersistsPodcastJobAndAlignedParagraphs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	podcasts := podcastrepo.NewPodcastSQLiteRepo(db)
 	jobs := jobrepo.NewJobSQLiteRepo(db)
