@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"strings"
@@ -30,6 +31,7 @@ type Middleware func(http.Handler) http.Handler
 // Dependencies required to build the router.
 type Dependencies struct {
 	Config   config.Config
+	SQLite   *sql.DB
 	Postgres *pgxpool.Pool
 	Valkey   *redis.Client
 	Context  any
@@ -79,20 +81,23 @@ func NewRouter(deps Dependencies) http.Handler {
 	var jobRepo jobs.JobRepository
 	var lock jobs.Locker
 
-	if deps.Postgres != nil {
+	if deps.SQLite != nil {
+		podcastRepo = podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
+		paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
+		jobRepo = jobrepo.NewJobSQLiteRepo(deps.SQLite)
+		lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
+	} else if deps.Postgres != nil {
 		podcastRepo = podcastrepo.NewPodcastPgRepo(deps.Postgres)
 		paragraphRepo = paragraphrepo.NewParagraphPgRepo(deps.Postgres)
 		jobRepo = jobrepo.NewJobPgRepo(deps.Postgres)
 	} else {
-		// fallback stubs for tests
-		podcastRepo = podcastrepo.NewPodcastRepository()
-		paragraphRepo = paragraphrepo.NewParagraphMemoryRepo()
-		jobRepo = jobrepo.NewJobMemoryRepo()
+		panic("api.NewRouter requires SQLite or Postgres dependencies")
 	}
 	if deps.Valkey != nil {
 		lock = lockinfra.NewValkeyLock(deps.Valkey, 5*time.Minute)
-	} else {
-		lock = lockinfra.NewInMemoryLock()
+	}
+	if lock == nil {
+		panic("api.NewRouter requires SQLite or Valkey locking")
 	}
 
 	transcriptFetcher := transcript.NewFetcher()

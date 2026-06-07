@@ -4,12 +4,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"podcast-summarizer/src/api"
 )
 
 func TestViewAlignment(t *testing.T) {
-	router := api.NewRouter(api.Dependencies{})
+	router := newTestRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/podcasts/demo/view", nil)
 	rr := httptest.NewRecorder()

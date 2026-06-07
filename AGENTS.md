@@ -4,7 +4,7 @@ Auto-generated from all feature plans. Last updated: 2025-11-29
 
 ## Active Technologies
 
-- TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean architecture). + Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; Valkey client; database/sql with Postgres driver. (001-podcast-summary-ui)
+- TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean architecture). + Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; default SQLite storage; optional Valkey client and Postgres driver for cloud mode. (001-podcast-summary-ui)
 
 ## Project Structure
 
@@ -23,7 +23,7 @@ TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean ar
 
 ## Recent Changes
 
-- 001-podcast-summary-ui: Added TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean architecture). + Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; Valkey client; database/sql with Postgres driver.
+- 001-podcast-summary-ui: Added TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean architecture). + Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; default SQLite storage; optional Valkey client and Postgres driver for cloud mode.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

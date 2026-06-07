@@ -4,12 +4,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"podcast-summarizer/src/api"
 )
 
 func TestExportPayload(t *testing.T) {
-	router := api.NewRouter(api.Dependencies{})
+	router := newTestRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/podcasts/demo/export", nil)
 	rr := httptest.NewRecorder()
 

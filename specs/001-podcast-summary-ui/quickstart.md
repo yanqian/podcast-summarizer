@@ -5,29 +5,55 @@ Branch: 001-podcast-summary-ui
 
 ## Prerequisites
 
-- Go (latest stable), Node.js + pnpm or npm, PostgreSQL, Valkey
-- Environment variables for DB/cache/backends configured (URLs/credentials)
+- Go 1.25+, Node.js + npm
+- ffmpeg on PATH for audio transcription flows
+- Optional: Postgres/Valkey only when running cloud mode
 
 ## Setup
 
-1. Install frontend deps: `cd frontend && pnpm install`
+1. Install frontend deps: `cd frontend && npm ci`
 2. Install backend deps: `cd backend && go mod download`
-3. Start Postgres and Valkey locally (containers or services)
-4. Apply initial migrations/seeds for podcast tables
+3. Optional: copy `backend/.env.example` to `backend/.env` and fill external adapter keys.
 
 ## Run
 
 1. Backend: `cd backend && go run ./cmd/server` (exposes REST API per contracts/openapi.yaml)
-   - Requires Postgres/Valkey reachable via env vars; uses SSE at `/api/streams/transcript/{jobId}` for chunk streaming.
+   - Defaults to SQLite at `backend/data/podcast.db`; no Postgres/Valkey required.
+   - Defaults to local file storage at `backend/data/storage` for generated audio/chunk artifacts.
+   - Uses SSE at `/api/streams/transcript/{jobId}` for chunk streaming.
 2. Frontend: `cd frontend && npm run dev` (Vite dev server)
 3. Open app, paste a podcast URL, observe streaming transcript chunks, and view aligned transcript/summary when complete.
+
+### Optional Postgres/Valkey Mode
+
+Set these env vars before starting the backend:
+
+```bash
+STORAGE_DRIVER=postgres
+POSTGRES_URL=postgres://user:password@host:5432/podcast_summarizer?sslmode=require
+VALKEY_URL=redis://default:password@host:6379
+```
+
+Postgres mode requires `VALKEY_URL`; default SQLite mode does not.
+
+### Optional R2 Storage
+
+Default demo mode stores generated artifacts locally. To use Cloudflare R2 instead:
+
+```bash
+OBJECT_STORAGE_DRIVER=r2
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_BUCKET=podcast-artifacts
+R2_ACCESS_KEY=...
+R2_SECRET_KEY=...
+```
 
 ## Tests
 
 - Backend: `GOCACHE=$(pwd)/.gocache go test ./...`
 - Frontend unit: `npm test` (uses vitest/jsdom; excludes e2e)
 - Frontend e2e: Playwright removed; add back later if e2e coverage needed.
-- Backend: `go test ./...` (unit) and integration suite pointing to Postgres/Valkey test instances
+- Backend: `go test ./...` (unit, contract, and lightweight integration suites)
 - Contract tests: ensure responses align with `contracts/openapi.yaml`
 
 ## Notes
@@ -43,4 +69,5 @@ Branch: 001-podcast-summary-ui
 ## Current Status
 
 - SSE streaming implemented with stubbed transcription/summarization; replace stubs with real services before release.
+- SQLite-first demo storage implemented; Postgres/Valkey remain optional cloud dependencies.
 - Frontend deps installed via npm; backend tests pass; frontend unit test runs via vitest; no e2e runner.

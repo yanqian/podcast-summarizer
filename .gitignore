@@ -65,4 +65,9 @@ trace.out
 *.log
 *.pid
 *.seed
+*.db
+*.db-shm
+*.db-wal
+data/storage/
+backend/data/storage/
 tmp/

@@ -3,6 +3,8 @@ package config
 import "os"
 
 type Config struct {
+	StorageDriver         string
+	SQLitePath            string
 	PostgresURL           string
 	ValkeyURL             string
 	APIBaseURL            string
@@ -14,6 +16,8 @@ type Config struct {
 	OpenAIAPIKey          string
 	OpenAITranscribeModel string
 	OpenAISummarizeModel  string
+	ObjectStorageDriver   string
+	LocalStoragePath      string
 	R2Endpoint            string
 	R2Bucket              string
 	R2AccessKey           string
@@ -23,6 +27,8 @@ type Config struct {
 
 func Load() Config {
 	return Config{
+		StorageDriver:         getenvDefault("STORAGE_DRIVER", "sqlite"),
+		SQLitePath:            getenvDefault("SQLITE_PATH", "data/podcast.db"),
 		PostgresURL:           os.Getenv("POSTGRES_URL"),
 		ValkeyURL:             os.Getenv("VALKEY_URL"),
 		APIBaseURL:            os.Getenv("API_BASE_URL"),
@@ -34,6 +40,8 @@ func Load() Config {
 		OpenAIAPIKey:          getenvDefault("OPENAI_API_KEY", ""),
 		OpenAITranscribeModel: getenvDefault("OPENAI_TRANSCRIBE_MODEL", "whisper-1"),
 		OpenAISummarizeModel:  getenvDefault("OPENAI_SUMMARIZE_MODEL", "gpt-4o-mini"),
+		ObjectStorageDriver:   getenvDefault("OBJECT_STORAGE_DRIVER", "local"),
+		LocalStoragePath:      getenvDefault("LOCAL_STORAGE_PATH", "data/storage"),
 		R2Endpoint:            getenvDefault("R2_ENDPOINT", ""),
 		R2Bucket:              getenvDefault("R2_BUCKET", ""),
 		R2AccessKey:           getenvDefault("R2_ACCESS_KEY", ""),

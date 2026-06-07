@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -67,10 +66,6 @@ func (u *R2Uploader) Upload(ctx context.Context, key string, localPath string) (
 	return key, nil
 }
 
-func BuildObjectKey(podcastID, filename string) string {
-	return filepath.Join(podcastID, filename)
-}
-
 // sanitizeEndpoint drops any path suffix from the endpoint to avoid duplicating bucket/key segments.
 func sanitizeEndpoint(raw string) string {
 	if raw == "" {
@@ -83,10 +78,4 @@ func sanitizeEndpoint(raw string) string {
 	parsed.Path = ""
 	parsed.RawPath = ""
 	return strings.TrimRight(parsed.String(), "/")
-}
-
-type NoopUploader struct{}
-
-func (n *NoopUploader) Upload(ctx context.Context, key, path string) (string, error) {
-	return "", nil
 }

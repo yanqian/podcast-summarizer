@@ -6,12 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"podcast-summarizer/src/api"
 )
 
 func TestIngestWithExistingTranscript(t *testing.T) {
-	router := api.NewRouter(api.Dependencies{})
+	router := newTestRouter(t)
 
 	body := []byte(`{"url":"http://example.com/podcast"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/podcasts/ingest", bytes.NewReader(body))
