@@ -1,92 +1,164 @@
-# Deployment Cheatsheet
+# Running and Demoing
 
-Tasks to publish the monorepo to GitHub and deploy both backend (Go) and frontend (Vite/React). The backend defaults to SQLite for local/demo use. Cloud Run can still run it, but Cloud Run's filesystem is ephemeral, so use Postgres mode or durable storage for data you care about.
+This project is optimized as a local-first portfolio demo. The default setup uses SQLite and local file storage, so a reviewer can run the full app without provisioning Google Cloud, Postgres, Valkey, or object storage.
 
-## 1) Prepare the repo
-- Ensure `backend/.env.example` exists (no secrets); keep `backend/.env` out of git via `.gitignore`.
-- `git init`, add all sources, commit; create GitHub repo; `git remote add origin git@github.com:<you>/podcast-summarizer.git`; `git push -u origin main`.
+Cloud-style adapters are still present in the codebase, but they are optional extensions rather than the recommended path.
 
-## 2) Backend image (Go)
-- Add `backend/Dockerfile` (if missing):
-  ```Dockerfile
-  FROM golang:1.25 AS build
-  WORKDIR /app
-  COPY . .
-  go build -o server ./cmd/server  # adjust path to your main
+## Recommended Demo Path
 
-  FROM gcr.io/distroless/base-debian12
-  WORKDIR /app
-  COPY --from=build /app/server .
-  EXPOSE 8080
-  CMD ["/app/server"]
-  ```
-- Build and push: `gcloud builds submit --tag gcr.io/$PROJECT_ID/podcast-api ./backend`.
+Use this when showing the project on a resume, in an interview, or in a short screen recording.
 
-## 3) Frontend image (Vite)
-- Add `frontend/Dockerfile` (if missing):
-  ```Dockerfile
-  FROM node:20 AS build
-  WORKDIR /app
-  COPY package*.json ./
-  npm ci
-  COPY . .
-  npm run build
+1. Start the backend:
 
-  FROM nginx:1.27-alpine
-  COPY --from=build /app/dist /usr/share/nginx/html
-  EXPOSE 8080
-  CMD ["nginx", "-g", "daemon off;"]
-  ```
-- Build and push: `gcloud builds submit --tag gcr.io/$PROJECT_ID/podcast-web ./frontend`.
-*Alternative:* skip Cloud Run for the frontend and upload `frontend/dist` to Cloud Storage + Cloud CDN.
+   ```bash
+   cd backend
+   cp .env.example .env
+   make run
+   ```
 
-## 4) Deploy to Cloud Run
-- Backend:
+2. Start the frontend:
+
+   ```bash
+   cd frontend
+   npm ci
+   npm run dev -- --host
+   ```
+
+3. Open the Vite dev URL and submit a podcast URL.
+
+4. Show these behaviors:
+   - Ingest accepts a podcast URL and creates a processing job.
+   - Transcript progress streams into the UI through SSE.
+   - Summary paragraphs align with transcript paragraphs.
+   - The podcast list and detail view persist across restarts because data is stored in SQLite.
+   - Export endpoints return reusable transcript/summary output.
+
+Local data lives under `backend/data/` and is ignored by git.
+
+## Local Configuration
+
+The backend defaults are enough for a demo:
+
+```text
+STORAGE_DRIVER=sqlite
+SQLITE_PATH=data/podcast.db
+OBJECT_STORAGE_DRIVER=local
+LOCAL_STORAGE_PATH=data/storage
+FFMPEG_PATH=ffmpeg
+```
+
+Optional model adapters:
+
+```text
+OPENAI_API_KEY=
+OPENAI_TRANSCRIBE_MODEL=whisper-1
+OPENAI_SUMMARIZE_MODEL=gpt-4o-mini
+TRANSCRIBE_URL=
+TRANSCRIBE_KEY=
+SUMMARIZE_URL=
+SUMMARIZE_KEY=
+```
+
+If these are unset, the app uses local/stub adapters where available, which keeps the demo self-contained.
+
+## Docker Demo
+
+Docker is useful when you want a packaged demo, but it is not required for normal development.
+
+Build the backend image:
+
+```bash
+docker build backend -t podcast-api:local
+```
+
+Run it with a mounted data directory:
+
+```bash
+mkdir -p backend/data
+docker run --rm \
+  -p 8080:8080 \
+  -v "$PWD/backend/data:/app/data" \
+  --env STORAGE_DRIVER=sqlite \
+  --env SQLITE_PATH=data/podcast.db \
+  --env OBJECT_STORAGE_DRIVER=local \
+  --env LOCAL_STORAGE_PATH=data/storage \
+  podcast-api:local
+```
+
+Build the frontend image. `VITE_API_BASE_URL` is baked into the static bundle at build time:
+
+```bash
+docker build frontend \
+  --build-arg VITE_API_BASE_URL=http://localhost:8080 \
+  -t podcast-web:local
+```
+
+Run the frontend:
+
+```bash
+docker run --rm -p 8081:8080 podcast-web:local
+```
+
+Open `http://localhost:8081`.
+
+## Portfolio Notes
+
+For a resume or project page, emphasize the engineering choices rather than cloud plumbing:
+
+- Clean architecture in Go with repository and adapter boundaries.
+- SQLite as the default because the project is easy to run and inspect.
+- Optional Postgres/Valkey implementations to show cloud-readiness without requiring cloud setup.
+- SSE streaming from backend jobs to the React UI.
+- Media pipeline integration around download, `ffmpeg` chunking, transcription, summarization, and export.
+
+Suggested demo assets:
+
+- A short screen recording of ingest -> streaming transcript -> summary view.
+- A screenshot of the podcast list after restarting the backend to show persistence.
+- A small architecture diagram or the Mermaid diagram from `README.md`.
+
+## Optional Cloud Mode
+
+Use cloud mode only if you specifically want to demonstrate deployment experience. It is not necessary for the main portfolio story.
+
+Cloud mode requires:
+
+- `STORAGE_DRIVER=postgres`
+- `POSTGRES_URL`
+- `VALKEY_URL`
+- A migrated Postgres schema:
+
   ```bash
-  gcloud run deploy podcast-api \
-    --image gcr.io/$PROJECT_ID/podcast-api \
-    --region us-central1 \
-    --allow-unauthenticated \
-    --set-secrets OPENAI_API_KEY=projects/$PROJECT_ID/secrets/OPENAI_API_KEY:latest \
-    --set-env-vars "ENV=prod,STORAGE_DRIVER=postgres" \
-    --service-account <sa>@$PROJECT_ID.iam.gserviceaccount.com
-  ```
-- Frontend:
-  ```bash
-  gcloud run deploy podcast-web \
-    --image gcr.io/$PROJECT_ID/podcast-web \
-    --region us-central1 \
-    --allow-unauthenticated
+  psql "$POSTGRES_URL" -f backend/src/repo/migrations/001_init.sql
   ```
 
-## 5) Secrets, env, networking
-- Use Secret Manager + `--set-secrets` for keys; use `--set-env-vars` for non-sensitive config (API base URL, etc.).
-- Local/demo mode uses `STORAGE_DRIVER=sqlite`, `SQLITE_PATH=data/podcast.db`, `OBJECT_STORAGE_DRIVER=local`, and `LOCAL_STORAGE_PATH=data/storage`.
-- For Cloud Run with durable data, set `STORAGE_DRIVER=postgres` and `POSTGRES_URL`.
-- `VALKEY_URL` is required when `STORAGE_DRIVER=postgres`; SQLite mode uses SQLite-backed job locking.
-- Use `OBJECT_STORAGE_DRIVER=r2` for Cloud Run if generated audio/chunk artifacts must survive instance restarts. Local storage is best for local/self-hosted demos.
-- If using Cloud SQL or Memorystore, add a Serverless VPC connector and `--add-cloudsql-instances` or private IP; set `POSTGRES_URL`/`VALKEY_URL`.
-- Enable CORS on the backend if the frontend is on a different origin.
+For durable generated media in a stateless environment, also configure R2:
 
-## 6) Optional CI/CD (Cloud Build)
-- Add `cloudbuild.yaml` to build and deploy both images on push:
-  ```yaml
-  steps:
-    - name: gcr.io/cloud-builders/docker
-      args: ["build","-t","gcr.io/$PROJECT_ID/podcast-api","backend"]
-    - name: gcr.io/cloud-builders/docker
-      args: ["build","-t","gcr.io/$PROJECT_ID/podcast-web","frontend"]
-    - name: gcr.io/cloud-builders/gcloud
-      args: ["run","deploy","podcast-api","--image","gcr.io/$PROJECT_ID/podcast-api","--region","us-central1","--allow-unauthenticated"]
-    - name: gcr.io/cloud-builders/gcloud
-      args: ["run","deploy","podcast-web","--image","gcr.io/$PROJECT_ID/podcast-web","--region","us-central1","--allow-unauthenticated"]
-  images:
-    - gcr.io/$PROJECT_ID/podcast-api
-    - gcr.io/$PROJECT_ID/podcast-web
-  ```
-- Create a Cloud Build trigger from GitHub on `main` or tags; inject secrets via Secret Manager substitutions.
+```text
+OBJECT_STORAGE_DRIVER=r2
+R2_ENDPOINT=
+R2_BUCKET=
+R2_ACCESS_KEY=
+R2_SECRET_KEY=
+R2_PUBLIC_BASE_URL=
+```
 
-## 7) Post-deploy checks
-- Hit backend health or `/` endpoint; load frontend URL; verify CORS and API base URL.
-- Map custom domains to both services; force HTTPS.
-- Add uptime checks/alerts; watch Cloud Run logs for errors.
+The backend listens on `$PORT` when set, so it can run on platforms like Cloud Run, Fly.io, Render, or a simple VM. The frontend can be served from the included nginx image or from a static host; set `VITE_API_BASE_URL` to the public HTTPS backend URL before building.
+
+## Checks
+
+Backend:
+
+```bash
+cd backend
+GOCACHE=$(pwd)/.gocache go test ./...
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run build
+npm test
+npm run lint
+```

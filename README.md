@@ -1,17 +1,65 @@
 # Podcast Summarizer
 
-Monorepo for a podcast ingestion and summarization app. Backend is Go (clean architecture) with HTTP API and SSE streaming. It defaults to local SQLite for demo/self-hosted use, with optional Postgres + Valkey for cloud deployments. Frontend is Vite + React + TypeScript + Tailwind/shadcn/ui.
+Local-first podcast ingestion and summarization app built as a portfolio project. The backend is Go with clean architecture boundaries, SQLite persistence, HTTP APIs, and SSE streaming. The frontend is Vite + React + TypeScript + Tailwind/shadcn/ui.
+
+The default path is intentionally simple: run it on one machine, store data in `backend/data/podcast.db`, and demonstrate the product workflow without needing cloud infrastructure. Postgres, Valkey, and R2 adapters remain available as optional cloud-mode extensions.
+
+## What it demonstrates
+- End-to-end podcast workflow: ingest a podcast URL, fetch metadata, stream transcription progress, summarize aligned transcript paragraphs, and export results.
+- Local-first persistence with SQLite by default, plus repository adapters for optional Postgres mode.
+- Streaming UX via Server-Sent Events from Go to React.
+- External-service boundaries for transcription, summarization, media chunking, object storage, and podcast metadata lookup.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A["React frontend"] -->|"HTTP + SSE"| B["Go API"]
+  B --> C["Ingest service"]
+  B --> D["Job manager"]
+  C --> E["Podcast metadata adapter"]
+  D --> F["Transcript provider"]
+  D --> G["Summary service"]
+  D --> H["Storage publisher"]
+  B --> I["SQLite repositories"]
+  I --> J["backend/data/podcast.db"]
+  F --> K["ffmpeg chunker"]
+  F --> L["Transcription adapter"]
+  G --> M["Summarizer adapter"]
+```
 
 ## Project layout
 - `backend/`: Go services, adapters, infra, and jobs; entrypoint at `cmd/server`.
 - `frontend/`: Vite SPA, pages/components/hooks/services; talks to the backend API.
-- `DEPLOYMENT.md`: Cloud Run + Cloud Build cheatsheet.
+- `DEPLOYMENT.md`: Local, Docker, and optional cloud-mode runbook.
 - `specs/`: planning artifacts.
 
 ## Prerequisites
 - Go 1.25+
 - Node 20+ and npm
 - ffmpeg on PATH (set `FFMPEG_PATH` if not simply `ffmpeg`)
+
+## Quickstart
+
+1. Start the backend:
+
+   ```bash
+   cd backend
+   cp .env.example .env
+   make run
+   ```
+
+2. Start the frontend in another terminal:
+
+   ```bash
+   cd frontend
+   npm ci
+   npm run dev -- --host
+   ```
+
+3. Open the Vite dev URL, submit a podcast URL, and watch the transcript stream in.
+
+Local data is created under `backend/data/` and ignored by git.
 
 ## Backend (Go)
 1) Copy `backend/.env.example` to `backend/.env` and fill any optional values (never commit secrets).
@@ -23,13 +71,16 @@ Monorepo for a podcast ingestion and summarization app. Backend is Go (clean arc
 Key env vars (`backend/src/config/config.go`):
 - `STORAGE_DRIVER`: defaults to `sqlite`; set `postgres` to use Postgres.
 - `SQLITE_PATH`: defaults to `data/podcast.db`.
-- `POSTGRES_URL`, `VALKEY_URL`: required together for optional Postgres cloud mode. SQLite mode uses the local database for job locking.
 - `API_BASE_URL` (public base for building links)
 - `FFMPEG_PATH`
 - Transcription adapters: `TRANSCRIBE_URL`, `TRANSCRIBE_KEY`
 - Summarization adapters: `SUMMARIZE_URL`, `SUMMARIZE_KEY`
 - OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`
-- Object storage: `OBJECT_STORAGE_DRIVER` defaults to `local`, storing generated audio/chunk artifacts under `LOCAL_STORAGE_PATH` (`data/storage`). Set `OBJECT_STORAGE_DRIVER=r2` plus `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_PUBLIC_BASE_URL` to use Cloudflare R2.
+- Object storage: `OBJECT_STORAGE_DRIVER` defaults to `local`, storing generated audio/chunk artifacts under `LOCAL_STORAGE_PATH` (`data/storage`).
+
+Optional cloud-mode env vars:
+- `POSTGRES_URL`, `VALKEY_URL`: required together when `STORAGE_DRIVER=postgres`.
+- `OBJECT_STORAGE_DRIVER=r2` plus `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_PUBLIC_BASE_URL`.
 
 ## Frontend (Vite + React)
 From `frontend/`:
@@ -40,9 +91,13 @@ From `frontend/`:
 - Test: `npm test` (Vitest + jsdom)
 
 ## Deployment
-- Build two images: `backend/Dockerfile` (Go → distroless), `frontend/Dockerfile` (Vite build → nginx).
-- Push via Cloud Build: `gcloud builds submit --tag gcr.io/$PROJECT_ID/podcast-api ./backend` and `.../podcast-web ./frontend`.
-- Deploy to Cloud Run: see commands and CI/CD example in `DEPLOYMENT.md`. SQLite is best for local/demo runs; Cloud Run's filesystem is ephemeral, so use Postgres mode or attach durable storage before storing data you care about.
+For a resume/demo project, the recommended deployment story is local or single-machine Docker. The included Dockerfiles are useful for packaging and demos, but cloud deployment is optional.
+
+See `DEPLOYMENT.md` for:
+- Local demo commands
+- Docker build/run commands
+- A lightweight portfolio demo checklist
+- Optional cloud-mode notes for Postgres, Valkey, R2, or Cloud Run
 
 ## Contributing / workflow
 - Keep backend/frontend changes in sync via the monorepo.
