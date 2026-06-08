@@ -36,6 +36,28 @@ type Paragraph = {
   summary: string;
 };
 
+export type TranscriptSegment = {
+  id: string;
+  orderIndex: number;
+  text: string;
+  startSeconds?: number;
+  endSeconds?: number;
+};
+
+export type SummarySegment = {
+  id: string;
+  orderIndex: number;
+  text: string;
+  sourceTranscriptSegmentIds: string[];
+};
+
+export type EpisodeDetail = EpisodeStatus & {
+  description?: string;
+  transcriptSegments: TranscriptSegment[];
+  summarySegments: SummarySegment[];
+  paragraphs: Paragraph[];
+};
+
 type TranscriptView = {
   podcastId: string;
   paragraphs: Paragraph[];
@@ -61,6 +83,11 @@ export async function ingestPodcast(url: string): Promise<JobAccepted> {
 
 export async function fetchView(podcastId: string): Promise<TranscriptView> {
   return apiRequest<TranscriptView>(`/api/podcasts/${podcastId}/view`);
+}
+
+export async function fetchEpisodeDetail(podcastId: string): Promise<EpisodeDetail> {
+  const resp = await apiRequest<unknown>(`/api/podcasts/${podcastId}`);
+  return normalizeEpisodeDetail(resp);
 }
 
 export async function fetchEpisodeStatus(podcastId: string): Promise<EpisodeStatus> {
@@ -136,6 +163,55 @@ function normalizeEpisodeStatus(raw: unknown): EpisodeStatus {
     hasTranscript: pickBool(record, 'hasTranscript', 'HasTranscript'),
     status: pickString(record, 'status', 'Status') || latestJob?.status || 'not_started',
     latestJob
+  };
+}
+
+function normalizeTranscriptSegment(raw: unknown): TranscriptSegment {
+  const record = asRecord(raw);
+  return {
+    id: pickString(record, 'id', 'ID'),
+    orderIndex: pickNumber(record, 'orderIndex', 'OrderIndex') ?? 0,
+    text: pickString(record, 'text', 'Text'),
+    startSeconds: pickNumber(record, 'startSeconds', 'StartSeconds'),
+    endSeconds: pickNumber(record, 'endSeconds', 'EndSeconds')
+  };
+}
+
+function normalizeSummarySegment(raw: unknown): SummarySegment {
+  const record = asRecord(raw);
+  const rawSourceIds = record.sourceTranscriptSegmentIds ?? record.SourceTranscriptSegmentIDs;
+  return {
+    id: pickString(record, 'id', 'ID'),
+    orderIndex: pickNumber(record, 'orderIndex', 'OrderIndex') ?? 0,
+    text: pickString(record, 'text', 'Text'),
+    sourceTranscriptSegmentIds: Array.isArray(rawSourceIds)
+      ? rawSourceIds.filter((item): item is string => typeof item === 'string')
+      : []
+  };
+}
+
+function normalizeParagraph(raw: unknown): Paragraph {
+  const record = asRecord(raw);
+  return {
+    paragraphId: pickString(record, 'paragraphId', 'ParagraphID'),
+    orderIndex: pickNumber(record, 'orderIndex', 'OrderIndex') ?? 0,
+    text: pickString(record, 'text', 'Text'),
+    summary: pickString(record, 'summary', 'Summary')
+  };
+}
+
+function normalizeEpisodeDetail(raw: unknown): EpisodeDetail {
+  const record = asRecord(raw);
+  const status = normalizeEpisodeStatus(raw);
+  const transcriptSegments = record.transcriptSegments ?? record.TranscriptSegments;
+  const summarySegments = record.summarySegments ?? record.SummarySegments;
+  const paragraphs = record.paragraphs ?? record.Paragraphs;
+  return {
+    ...status,
+    description: pickString(record, 'description', 'Description') || undefined,
+    transcriptSegments: Array.isArray(transcriptSegments) ? transcriptSegments.map(normalizeTranscriptSegment) : [],
+    summarySegments: Array.isArray(summarySegments) ? summarySegments.map(normalizeSummarySegment) : [],
+    paragraphs: Array.isArray(paragraphs) ? paragraphs.map(normalizeParagraph) : []
   };
 }
 

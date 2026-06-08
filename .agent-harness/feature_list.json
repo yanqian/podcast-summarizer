@@ -203,9 +203,9 @@
         "The UI handles loading, empty, failed, and completed episode states.",
         "Frontend tests or interaction checks prove transcript-summary mapping is rendered from fixture API data."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P1",
       "depends_on": [

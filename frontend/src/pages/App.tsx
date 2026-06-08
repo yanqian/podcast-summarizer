@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PodcastList } from '../components/PodcastList';
 import { PodcastListItem } from '../services/podcastClient';
 import { AdminSubmissionPage } from './AdminSubmissionPage';
+import { PodcastView } from './PodcastView';
 
 const App = () => {
   const [selected, setSelected] = useState<PodcastListItem | undefined>();
@@ -27,7 +28,10 @@ const App = () => {
             <PodcastList selectedId={selected?.id} onSelect={handleSelect} refreshKey={refreshKey} />
           </div>
           <div className="md:col-span-2">
-            <AdminSubmissionPage selectedPodcast={selected} onSubmissionRecorded={handleSubmissionRecorded} />
+            <div className="space-y-6">
+              <AdminSubmissionPage selectedPodcast={selected} onSubmissionRecorded={handleSubmissionRecorded} />
+              <PodcastView selectedPodcast={selected} />
+            </div>
           </div>
         </div>
       </div>

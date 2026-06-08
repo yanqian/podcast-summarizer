@@ -24,6 +24,8 @@ F009 has been implemented and evaluator-accepted. The implementation exposes loc
 
 F010 has been implemented and evaluator-accepted. The implementation adds a frontend admin submission/status page wired to ingest and episode status APIs, distinguishes duplicate existing episodes from new processing jobs, displays queued/completed/failed states and processing errors, refreshes selected episode status, and adds frontend interaction tests for submit, duplicate, loading, success, and error states.
 
+F011 has been implemented and evaluator-accepted. The implementation adds a selected-episode transcript and summary viewer wired to the backend episode detail API, groups transcript segments by summary source mappings, displays unmapped transcript segments, handles loading/empty/failed/completed states, and adds frontend interaction tests with real-shaped fixture API data.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -36,11 +38,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F010 Build admin podcast submission UI.
+F011 Build transcript and summary viewer.
 
 ## Next Feature
 
-F011 Build transcript and summary viewer.
+F012 Polish local Docker demo and documentation.
 
 ## Known Issues
 
@@ -49,3 +51,4 @@ F011 Build transcript and summary viewer.
 - The Codex provider adapter produced completed coding work and an evaluator pass, but the orchestrator still recorded a non-zero coding-provider failure. Future unattended rounds may need provider adapter hardening if this repeats.
 - Manual F006 coding encountered a sandbox listener limitation when using `httptest`; adapter verification now uses a fake `http.RoundTripper` fixture, so no socket binding or live OpenAI call is required.
 - Manual F010 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`) and the in-app Browser surface was unavailable (`iab` not available). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, and Vite production build; browser visual inspection remains an environment limitation for this run.
+- Manual F011 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, Vite production build, feature validation, and final root `./init.sh`; browser visual inspection remains an environment limitation for this run.

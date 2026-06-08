@@ -1,249 +1,222 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { UrlInput } from '../components/UrlInput';
-import { fetchView, ingestPodcast } from '../services/podcastClient';
-import { StatusBanner } from '../components/StatusBanner';
-import { subscribeTranscript, StreamEvent } from '../services/streamClient';
-
-type Paragraph = {
-  paragraphId: string;
-  orderIndex: number;
-  text: string;
-  summary?: string;
-};
-
-type StructuredSummary = {
-  discussion: string;
-};
-
-function parseStructuredSummary(raw?: string): StructuredSummary | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith('{')) return null;
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    const record = parsed as Record<string, unknown>;
-    const discussion = typeof record.discussion === 'string' ? record.discussion.trim() : '';
-    if (!discussion) return null;
-    return { discussion };
-  } catch {
-    return null;
-  }
-}
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, BookOpen, FileText, Loader2 } from 'lucide-react';
+import {
+  EpisodeDetail,
+  PodcastListItem,
+  SummarySegment,
+  TranscriptSegment,
+  fetchEpisodeDetail
+} from '../services/podcastClient';
 
 type Props = {
-  selectedPodcastId?: string;
-  onIngested?: (podcastId: string, jobId: string) => void;
+  selectedPodcast?: PodcastListItem;
 };
 
-export const PodcastView = ({ selectedPodcastId, onIngested }: Props) => {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'streaming' | 'error' | 'success'>('idle');
-  const [error, setError] = useState<string | undefined>();
-  const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
-  const [podcastId, setPodcastId] = useState<string | undefined>();
-  const [pageIndex, setPageIndex] = useState<number>(0);
-  const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
-  const transcriptCardRef = useRef<HTMLDivElement | null>(null);
-  const [cardHeight, setCardHeight] = useState<number>();
+type RequestState = 'idle' | 'loading' | 'ready' | 'error';
 
-  const loadExisting = (id: string) => {
-    setStatus('loading');
+type TranscriptSummaryGroup = {
+  key: string;
+  orderIndex: number;
+  summary?: SummarySegment;
+  transcripts: TranscriptSegment[];
+};
+
+function statusLabel(status?: string) {
+  if (!status) return 'Not started';
+  return status.replace(/_/g, ' ');
+}
+
+function isFailed(detail?: EpisodeDetail) {
+  const status = (detail?.latestJob?.status || detail?.status || '').toLowerCase();
+  return status === 'failed';
+}
+
+function formatTimeRange(segment: TranscriptSegment) {
+  if (segment.startSeconds === undefined && segment.endSeconds === undefined) return '';
+  const format = (seconds?: number) => {
+    if (seconds === undefined) return '';
+    const minutes = Math.floor(seconds / 60);
+    const remainder = Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${minutes}:${remainder}`;
+  };
+  const start = format(segment.startSeconds);
+  const end = format(segment.endSeconds);
+  return start && end ? `${start}-${end}` : start || end;
+}
+
+function groupTranscriptBySummary(detail?: EpisodeDetail): TranscriptSummaryGroup[] {
+  if (!detail) return [];
+  const transcripts = [...detail.transcriptSegments].sort((a, b) => a.orderIndex - b.orderIndex);
+  const transcriptByID = new Map(transcripts.map((item) => [item.id, item]));
+  const usedTranscriptIDs = new Set<string>();
+
+  const summaryGroups = [...detail.summarySegments]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((summary) => {
+      const mappedTranscripts = summary.sourceTranscriptSegmentIds
+        .map((id) => transcriptByID.get(id))
+        .filter((item): item is TranscriptSegment => Boolean(item))
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+      mappedTranscripts.forEach((item) => usedTranscriptIDs.add(item.id));
+      return {
+        key: summary.id || `summary-${summary.orderIndex}`,
+        orderIndex: mappedTranscripts[0]?.orderIndex ?? summary.orderIndex,
+        summary,
+        transcripts: mappedTranscripts
+      };
+    });
+
+  const orphanGroups = transcripts
+    .filter((item) => !usedTranscriptIDs.has(item.id))
+    .map((item) => ({
+      key: item.id || `transcript-${item.orderIndex}`,
+      orderIndex: item.orderIndex,
+      transcripts: [item]
+    }));
+
+  return [...summaryGroups, ...orphanGroups].sort((a, b) => a.orderIndex - b.orderIndex);
+}
+
+export function PodcastView({ selectedPodcast }: Props) {
+  const [requestState, setRequestState] = useState<RequestState>('idle');
+  const [detail, setDetail] = useState<EpisodeDetail | undefined>();
+  const [error, setError] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!selectedPodcast?.id) {
+      setRequestState('idle');
+      setDetail(undefined);
+      setError(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    setRequestState('loading');
     setError(undefined);
-    setParagraphs([]);
-    fetchView(id)
-      .then((view) => {
-        const paras = Array.isArray(view.paragraphs) ? view.paragraphs : [];
-        const normalized = paras.map((p) => ({
-          paragraphId: p.paragraphId,
-          orderIndex: p.orderIndex ?? 0,
-          text: p.text,
-          summary: p.summary
-        }));
-        setPodcastId(view.podcastId);
-        setParagraphs(normalized);
-        setStatus('success');
+    fetchEpisodeDetail(selectedPodcast.id)
+      .then((nextDetail) => {
+        if (cancelled) return;
+        setDetail(nextDetail);
+        setRequestState('ready');
       })
       .catch((e) => {
-        setStatus('error');
-        setError(e instanceof Error ? e.message : 'Unexpected error');
+        if (cancelled) return;
+        setDetail(undefined);
+        setError(e instanceof Error ? e.message.trim() : 'Unable to load episode detail');
+        setRequestState('error');
       });
-  };
 
-  // Load when a podcast is selected from list
-  useEffect(() => {
-    if (selectedPodcastId && selectedPodcastId !== podcastId && status !== 'streaming') {
-      loadExisting(selectedPodcastId);
-    }
-  }, [selectedPodcastId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPodcast?.id]);
 
-  const handleStreamEvent = (evt: StreamEvent) => {
-    if (evt.event === 'chunk') {
-      setParagraphs((prev) => {
-        const next = [...prev];
-        next.push({
-          paragraphId: `stream-${evt.data.order}`,
-          orderIndex: evt.data.order,
-          text: evt.data.text
-        });
-        return next;
-      });
-    } else if (evt.event === 'done' && podcastId) {
-      fetchView(podcastId)
-        .then((view) => {
-          const paras = Array.isArray(view.paragraphs) ? view.paragraphs : [];
-          const normalized = paras.map((p) => ({
-            paragraphId: p.paragraphId,
-            orderIndex: p.orderIndex ?? 0,
-            text: p.text,
-            summary: p.summary
-          }));
-          setParagraphs(normalized);
-          setStatus('success');
-        })
-        .catch((e) => {
-          setStatus('error');
-          setError(e instanceof Error ? e.message : 'Unexpected error');
-        });
-    }
-  };
+  const groups = useMemo(() => groupTranscriptBySummary(detail), [detail]);
+  const failed = isFailed(detail);
+  const latestError = detail?.latestJob?.errorMessage;
+  const hasTranscript = groups.some((group) => group.transcripts.length > 0);
+  const title = detail?.title || selectedPodcast?.title || selectedPodcast?.url || 'Episode viewer';
 
-  const handleSubmit = async (url: string) => {
-    setStatus('loading');
-    setError(undefined);
-    setParagraphs([]);
-    try {
-      const job = await ingestPodcast(url);
-      setPodcastId(job.podcastId);
-      if (!job.jobId) {
-        loadExisting(job.podcastId);
-        return;
-      }
-      onIngested?.(job.podcastId, job.jobId);
-      setStatus('streaming');
-      subscribeTranscript(job.jobId, handleStreamEvent, (err) => {
-        setStatus('error');
-        setError(err instanceof Event ? 'Streaming error' : 'Unexpected error');
-      });
-    } catch (e) {
-      setStatus('error');
-      setError(e instanceof Error ? e.message : 'Unexpected error');
-    }
-  };
-
-  const currentParagraph = paragraphs[pageIndex];
-  const selectedParagraph = selectedIndex !== undefined ? paragraphs.find((p) => p.orderIndex === selectedIndex) : undefined;
-  const selectedSummary = parseStructuredSummary(selectedParagraph?.summary);
-
-  const handlePrev = () => {
-    setSelectedIndex(undefined);
-    setPageIndex((idx) => Math.max(0, idx - 1));
-  };
-  const handleNext = () => {
-    setSelectedIndex(undefined);
-    setPageIndex((idx) => Math.min(paragraphs.length - 1, idx + 1));
-  };
-
-  useEffect(() => {
-    if (paragraphs.length > 0) {
-      setPageIndex((idx) => Math.min(idx, paragraphs.length - 1));
-      setSelectedIndex(paragraphs[Math.min(pageIndex, paragraphs.length - 1)].orderIndex);
-    } else {
-      setPageIndex(0);
-      setSelectedIndex(undefined);
-    }
-  }, [paragraphs.length]);
-
-  useEffect(() => {
-    if (currentParagraph) {
-      setSelectedIndex(currentParagraph.orderIndex);
-    }
-  }, [pageIndex]);
-
-  // Keep summary card height locked to transcript card height for consistent columns.
-  const syncCardHeight = () => {
-    const el = transcriptCardRef.current;
-    if (!el) return;
-    setCardHeight(el.getBoundingClientRect().height);
-  };
-
-  useLayoutEffect(() => {
-    syncCardHeight();
-  }, [paragraphs, selectedIndex]);
-
-  useEffect(() => {
-    const onResize = () => syncCardHeight();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  if (!selectedPodcast?.id) {
+    return (
+      <section className="rounded border bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-3 text-slate-700">
+          <BookOpen aria-hidden="true" className="mt-0.5 h-5 w-5" />
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">Transcript and summary</h2>
+            <p className="mt-1 text-sm">Select a podcast to view transcript and summary mappings.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <UrlInput onSubmit={handleSubmit} status={status} errorMessage={error} />
-      <StatusBanner status={status} error={error} />
-
-      {paragraphs.length > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={handlePrev}
-            disabled={pageIndex === 0}
-            className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+    <section className="rounded border bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-slate-950">Transcript and summary</h2>
+          <p className="mt-1 truncate text-sm text-slate-600" title={title}>
+            {title}
+          </p>
+        </div>
+        {detail && (
+          <span
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+              failed
+                ? 'bg-red-50 text-red-700'
+                : hasTranscript
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}
           >
-            Previous
-          </button>
-          <span className="text-sm text-slate-600">
-            Page {pageIndex + 1} of {paragraphs.length}
+            {statusLabel(detail.latestJob?.status || detail.status)}
           </span>
-          <button
-            onClick={handleNext}
-            disabled={pageIndex >= paragraphs.length - 1}
-            className="rounded border px-3 py-1 text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
+        )}
+      </div>
+
+      {requestState === 'loading' && (
+        <div className="flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          Loading episode detail...
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 items-stretch">
-        <section
-          ref={transcriptCardRef}
-          className="flex h-[70vh] flex-col rounded border bg-white p-4 shadow-sm"
-        >
-          <h2 className="mb-2 text-lg font-semibold">Transcript</h2>
-          <div className="flex-1 space-y-2 overflow-auto pr-1">
-            {currentParagraph ? (
-              <button
-                onClick={() => {
-                  setSelectedIndex(currentParagraph.orderIndex);
-                }}
-                className={`w-full rounded border px-3 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 ${
-                  selectedIndex === currentParagraph.orderIndex ? 'border-indigo-400 bg-indigo-50' : 'border-transparent'
-                }`}
-              >
-                <span className="text-slate-800 whitespace-pre-line break-words">{currentParagraph.text}</span>
-              </button>
-            ) : (
-              <p className="text-sm text-slate-600">Transcript paragraphs will appear here.</p>
-            )}
-          </div>
-        </section>
-        <section
-          className="flex h-[70vh] flex-col rounded border bg-white p-4 shadow-sm md:sticky md:top-2"
-          style={cardHeight ? { height: cardHeight } : undefined}
-        >
-          <h2 className="mb-2 text-lg font-semibold">Summary</h2>
-          {selectedIndex !== undefined ? (
-            <div className="flex-1 rounded border border-indigo-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 shadow-inner">
-              {selectedSummary ? (
-                <div className="whitespace-pre-line break-words">{selectedSummary.discussion}</div>
-              ) : (
-                <div className="whitespace-pre-line break-words">{selectedParagraph?.summary || '...'}</div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-600">Summaries will align with transcript paragraphs.</p>
-          )}
-        </section>
-      </div>
-    </div>
+      {requestState === 'error' && (
+        <div role="alert" className="flex items-start gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4" />
+          {error || 'Unable to load episode detail'}
+        </div>
+      )}
+
+      {requestState === 'ready' && failed && (
+        <div role="alert" className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p className="font-medium">Processing failed</p>
+          {latestError && <p className="mt-1">{latestError}</p>}
+        </div>
+      )}
+
+      {requestState === 'ready' && !hasTranscript && (
+        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-700">
+          No transcript segments available yet.
+        </div>
+      )}
+
+      {requestState === 'ready' && hasTranscript && (
+        <div className="space-y-4">
+          {groups.map((group, index) => (
+            <article key={group.key} className="grid gap-3 rounded border border-slate-200 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(220px,0.8fr)]">
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
+                  <FileText aria-hidden="true" className="h-4 w-4" />
+                  Transcript group {index + 1}
+                </div>
+                <div className="space-y-3">
+                  {group.transcripts.map((segment) => (
+                    <div key={segment.id} className="rounded border border-slate-100 bg-slate-50 px-3 py-2">
+                      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500">
+                        <span>Segment {segment.orderIndex}</span>
+                        {formatTimeRange(segment) && <span>{formatTimeRange(segment)}</span>}
+                      </div>
+                      <p className="whitespace-pre-line break-words text-sm leading-6 text-slate-900">{segment.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <aside className="rounded border border-indigo-100 bg-indigo-50 px-3 py-3 text-sm text-indigo-950">
+                <div className="mb-2 text-xs font-semibold uppercase text-indigo-700">Summary</div>
+                {group.summary ? (
+                  <p className="whitespace-pre-line break-words leading-6">{group.summary.text}</p>
+                ) : (
+                  <p className="text-indigo-800">No summary is mapped to this transcript segment yet.</p>
+                )}
+              </aside>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
-};
+}
