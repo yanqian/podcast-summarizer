@@ -15,7 +15,8 @@ Prerequisites:
 Local runtime:
 - The server uses SQLite only.
 - The database file is created automatically at `data/podcast.db` unless `SQLITE_PATH` is set.
-- Generated audio/chunk artifacts are copied to local file storage at `data/storage` unless `LOCAL_STORAGE_PATH` is set.
+- Downloaded episode audio is copied to `data/storage/<episode-id>/original.mp3` unless `LOCAL_STORAGE_PATH` is set.
+- ffmpeg chunks are copied to `data/storage/<episode-id>/chunks/chunk-001.mp3`, `chunk-002.mp3`, and so on, with matching SQLite `audio_chunk` rows in stable order.
 - SQLite stores episode metadata, processing jobs, audio chunk records, transcript segments, summary segments, and transcript-to-summary mappings. The database and generated files live under `data/` by default and are ignored by git.
 
 Current behavior:

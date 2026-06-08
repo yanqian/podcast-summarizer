@@ -12,6 +12,8 @@ F003 has been implemented and evaluator-accepted. The implementation adds SQLite
 
 F004 has been implemented and evaluator-accepted. The implementation adds pre-pipeline duplicate URL detection in backend ingestion, returns existing episode/job state for duplicate submissions, and adds backend tests proving duplicate submissions do not create another processing job.
 
+F005 has been implemented and evaluator-accepted. The implementation stores downloaded original audio and ordered chunks under local storage, persists `audio_chunk` metadata with byte size/checksum and stable local file references, propagates download/chunk/storage failures into failed job status, and adds fixture-backed backend tests that do not require a large real podcast file.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -24,14 +26,14 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F004 Add podcast URL ingestion and idempotency.
+F005 Download and chunk podcast audio locally.
 
 ## Next Feature
 
-F005 Download and chunk podcast audio locally.
+F006 Add OpenAI transcription adapter.
 
 ## Known Issues
 
 - Real OpenAI processing will require `OPENAI_API_KEY`, but routine tests and smoke checks must not require live credentials.
-- Audio chunking may require selecting and documenting a local tool such as `ffmpeg` during F005.
+- F005 now documents `ffmpeg` as the local chunking tool; routine tests use fixtures and do not require a large podcast file.
 - The Codex provider adapter produced completed coding work and an evaluator pass, but the orchestrator still recorded a non-zero coding-provider failure. Future unattended rounds may need provider adapter hardening if this repeats.

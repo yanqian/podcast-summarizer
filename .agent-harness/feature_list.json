@@ -84,9 +84,9 @@
         "Chunking can run through a documented local tool or internal implementation with clear setup guidance.",
         "Tests or fixtures verify chunk ordering, persisted metadata, and failure handling without requiring a large real podcast file."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [

@@ -11,10 +11,14 @@ import (
 
 // DownloadFile downloads a URL to a temp file and returns its path.
 func DownloadFile(url string) (string, error) {
+	return downloadFileWithClient(http.DefaultClient, url)
+}
+
+func downloadFileWithClient(client *http.Client, url string) (string, error) {
 	tmpDir := os.TempDir()
 	outPath := filepath.Join(tmpDir, fmt.Sprintf("podcast-%d.mp3", time.Now().UnixNano()))
 
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}

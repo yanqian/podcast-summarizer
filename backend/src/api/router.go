@@ -21,6 +21,7 @@ import (
 	jobrepo "podcast-summarizer/src/repo/job"
 	paragraphrepo "podcast-summarizer/src/repo/paragraph"
 	podcastrepo "podcast-summarizer/src/repo/podcast"
+	processingrepo "podcast-summarizer/src/repo/processing"
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -75,6 +76,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	var paragraphRepo domain.ParagraphRepository
 	var jobRepo jobs.JobRepository
 	var lock jobs.Locker
+	var processingRepo jobs.AudioChunkRepository
 
 	if deps.SQLite == nil {
 		panic("api.NewRouter requires SQLite dependencies")
@@ -83,6 +85,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
 	jobRepo = jobrepo.NewJobSQLiteRepo(deps.SQLite)
 	lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
+	processingRepo = processingrepo.NewProcessingSQLiteRepo(deps.SQLite)
 
 	transcriptFetcher := transcript.NewFetcher()
 	var transcriberClient jobs.TranscriptionFileClient = transcription.NewTranscriber()
@@ -106,7 +109,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	transcriptProvider := jobs.NewPipelineTranscriptProvider(transcriptFetcher, downloader, chunker, transcriberClient)
 	summarySvc := jobs.NewClientSummaryService(summarizerClient)
 	storagePublisher := jobs.NewObjectStoragePublisher(deps.Storage)
-	jobManager := jobs.NewManager(jobRepo, lock, paragraphRepo, notifier, transcriptProvider, summarySvc, storagePublisher)
+	jobManager := jobs.NewManagerWithArtifacts(jobRepo, lock, paragraphRepo, notifier, transcriptProvider, summarySvc, storagePublisher, processingRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

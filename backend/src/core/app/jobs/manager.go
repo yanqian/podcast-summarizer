@@ -2,8 +2,11 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -45,8 +48,13 @@ type SummaryService interface {
 
 // StoragePublisher uploads generated artifacts; optional.
 type StoragePublisher interface {
-	UploadOriginal(ctx context.Context, podcastID string, path string) error
-	UploadChunk(ctx context.Context, podcastID string, idx int, path string) error
+	UploadOriginal(ctx context.Context, podcastID string, path string) (string, error)
+	UploadChunk(ctx context.Context, podcastID string, idx int, path string) (string, error)
+}
+
+// AudioChunkRepository persists durable local chunk references.
+type AudioChunkRepository interface {
+	SaveAudioChunks(episodeID string, chunks []domain.AudioChunk) ([]domain.AudioChunk, error)
 }
 
 // Notifier handles streaming events (SSE).
@@ -82,24 +90,30 @@ type ObjectUploader interface {
 }
 
 type Manager struct {
-	jobRepo    JobRepository
-	lock       Locker
-	paras      ParagraphSaver
-	notifier   Notifier
-	transcript TranscriptProvider
-	summary    SummaryService
-	storage    StoragePublisher
+	jobRepo     JobRepository
+	lock        Locker
+	paras       ParagraphSaver
+	notifier    Notifier
+	transcript  TranscriptProvider
+	summary     SummaryService
+	storage     StoragePublisher
+	audioChunks AudioChunkRepository
 }
 
 func NewManager(jobRepo JobRepository, lock Locker, paras ParagraphSaver, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher) *Manager {
+	return NewManagerWithArtifacts(jobRepo, lock, paras, notifier, transcript, summary, storage, nil)
+}
+
+func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, paras ParagraphSaver, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher, audioChunks AudioChunkRepository) *Manager {
 	return &Manager{
-		jobRepo:    jobRepo,
-		lock:       lock,
-		paras:      paras,
-		notifier:   notifier,
-		transcript: transcript,
-		summary:    summary,
-		storage:    storage,
+		jobRepo:     jobRepo,
+		lock:        lock,
+		paras:       paras,
+		notifier:    notifier,
+		transcript:  transcript,
+		summary:     summary,
+		storage:     storage,
+		audioChunks: audioChunks,
 	}
 }
 
@@ -203,10 +217,24 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 				log.Printf("%s lock release failed key=%s err=%v", logPrefix, lockKey, err)
 			}
 		}()
+		_ = m.jobRepo.UpdateStatus(jobID, "running", nil, nil)
 
 		paragraphs, originalPath, chunkPaths, err := m.transcript.Provide(jobCtx, audioURL, transcriptURL)
-		if err != nil || len(paragraphs) == 0 {
-			paragraphs = []domain.Paragraph{{OrderIndex: 1, Text: "Transcribed content from audio " + audioURL}}
+		defer cleanupFiles(append([]string{originalPath}, chunkPaths...)...)
+		if err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("transcript pipeline failed: %v", err))
+			log.Printf("%s transcript pipeline failed: %v", logPrefix, err)
+			return
+		}
+		if len(paragraphs) == 0 {
+			m.failJob(jobID, ch, start, "transcript pipeline produced no paragraphs")
+			log.Printf("%s transcript pipeline produced no paragraphs", logPrefix)
+			return
+		}
+		if err := m.storeAudioArtifacts(jobCtx, podcastID, jobID, originalPath, chunkPaths); err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("audio artifact storage failed: %v", err))
+			log.Printf("%s audio artifact storage failed: %v", logPrefix, err)
+			return
 		}
 
 		for _, p := range paragraphs {
@@ -215,7 +243,11 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 			}
 		}
 
-		_ = m.paras.SaveTranscript(podcastID, paragraphs)
+		if err := m.paras.SaveTranscript(podcastID, paragraphs); err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("save transcript failed: %v", err))
+			log.Printf("%s save transcript failed: %v", logPrefix, err)
+			return
+		}
 
 		summaryModels, err := m.summary.Summarize(paragraphs)
 		if err != nil || len(summaryModels) == 0 {
@@ -223,17 +255,11 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 				summaryModels = append(summaryModels, domain.Summary{OrderIndex: p.OrderIndex, Text: "Summary: " + p.Text})
 			}
 		}
-		_ = m.paras.SaveSummaries(podcastID, summaryModels)
-
-		if m.storage != nil {
-			if originalPath != "" {
-				_ = m.storage.UploadOriginal(jobCtx, podcastID, originalPath)
-			}
-			for idx, p := range chunkPaths {
-				_ = m.storage.UploadChunk(jobCtx, podcastID, idx+1, p)
-			}
+		if err := m.paras.SaveSummaries(podcastID, summaryModels); err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("save summaries failed: %v", err))
+			log.Printf("%s save summaries failed: %v", logPrefix, err)
+			return
 		}
-		cleanupFiles(append([]string{originalPath}, chunkPaths...)...)
 
 		duration := int(time.Since(start).Milliseconds())
 		_ = m.jobRepo.UpdateStatus(jobID, "succeeded", &duration, nil)
@@ -247,6 +273,17 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 	}()
 
 	return jobID, nil
+}
+
+func (m *Manager) failJob(jobID string, ch chan []byte, start time.Time, message string) {
+	duration := int(time.Since(start).Milliseconds())
+	_ = m.jobRepo.UpdateStatus(jobID, "failed", &duration, &message)
+	if m.notifier != nil {
+		m.notifier.NotifyDone(jobID)
+	}
+	if ch != nil {
+		close(ch)
+	}
 }
 
 func splitTranscript(text string) []domain.Paragraph {
@@ -280,6 +317,83 @@ func cleanupFiles(paths ...string) {
 		}
 		_ = os.Remove(p)
 	}
+}
+
+func (m *Manager) storeAudioArtifacts(ctx context.Context, podcastID, jobID, originalPath string, chunkPaths []string) error {
+	if m.storage == nil && m.audioChunks == nil {
+		return nil
+	}
+
+	if m.storage != nil && originalPath != "" {
+		if _, err := m.storage.UploadOriginal(ctx, podcastID, originalPath); err != nil {
+			return fmt.Errorf("store original audio: %w", err)
+		}
+	}
+
+	var storedChunks []string
+	for idx, path := range chunkPaths {
+		if path == "" {
+			continue
+		}
+		storedPath := path
+		if m.storage != nil {
+			uploadedPath, err := m.storage.UploadChunk(ctx, podcastID, idx+1, path)
+			if err != nil {
+				return fmt.Errorf("store audio chunk %d: %w", idx+1, err)
+			}
+			storedPath = uploadedPath
+		}
+		if storedPath != "" {
+			storedChunks = append(storedChunks, storedPath)
+		}
+	}
+
+	if m.audioChunks == nil || len(storedChunks) == 0 {
+		return nil
+	}
+	chunks, err := buildAudioChunkRecords(jobID, storedChunks)
+	if err != nil {
+		return err
+	}
+	if _, err := m.audioChunks.SaveAudioChunks(podcastID, chunks); err != nil {
+		return fmt.Errorf("persist audio chunks: %w", err)
+	}
+	return nil
+}
+
+func buildAudioChunkRecords(jobID string, paths []string) ([]domain.AudioChunk, error) {
+	result := make([]domain.AudioChunk, 0, len(paths))
+	for idx, path := range paths {
+		size, checksum, err := fileMetadata(path)
+		if err != nil {
+			return nil, fmt.Errorf("read chunk metadata %s: %w", path, err)
+		}
+		result = append(result, domain.AudioChunk{
+			ProcessingJobID: &jobID,
+			OrderIndex:      idx + 1,
+			FilePath:        path,
+			ByteSize:        &size,
+			Checksum:        &checksum,
+		})
+	}
+	return result, nil
+}
+
+func fileMetadata(path string) (int64, string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, "", err
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	hash := sha256.New()
+	size, err := io.Copy(hash, file)
+	if err != nil {
+		return 0, "", err
+	}
+	return size, hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // SSENotifier manages per-job channels and payload formatting.
@@ -359,18 +473,22 @@ func (p *PipelineTranscriptProvider) Provide(ctx context.Context, audioURL strin
 	var chunkPaths []string
 
 	if len(paragraphs) == 0 && audioURL != "" && p.downloader != nil && p.chunker != nil && p.transcriber != nil {
-		if path, err := p.downloader.Download(audioURL); err == nil {
-			originalPath = path
-			if chunks, err := p.chunker.Chunk(path); err == nil {
-				chunkPaths = chunks
-				for idx, c := range chunks {
-					text, terr := p.transcriber.TranscribeFile(c)
-					if terr != nil {
-						text = "Transcription failed: " + terr.Error()
-					}
-					paragraphs = append(paragraphs, domain.Paragraph{OrderIndex: idx + 1, Text: text})
-				}
+		path, err := p.downloader.Download(audioURL)
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("download audio: %w", err)
+		}
+		originalPath = path
+		chunks, err := p.chunker.Chunk(path)
+		if err != nil {
+			return nil, originalPath, nil, fmt.Errorf("chunk audio: %w", err)
+		}
+		chunkPaths = chunks
+		for idx, c := range chunks {
+			text, terr := p.transcriber.TranscribeFile(c)
+			if terr != nil {
+				text = "Transcription failed: " + terr.Error()
 			}
+			paragraphs = append(paragraphs, domain.Paragraph{OrderIndex: idx + 1, Text: text})
 		}
 	}
 
@@ -435,19 +553,17 @@ func NewObjectStoragePublisher(uploader ObjectUploader) *ObjectStoragePublisher 
 	return &ObjectStoragePublisher{uploader: uploader}
 }
 
-func (p *ObjectStoragePublisher) UploadOriginal(ctx context.Context, podcastID string, path string) error {
+func (p *ObjectStoragePublisher) UploadOriginal(ctx context.Context, podcastID string, path string) (string, error) {
 	if p.uploader == nil || path == "" {
-		return nil
+		return "", nil
 	}
-	_, err := p.uploader.Upload(ctx, storage.BuildObjectKey(podcastID, "original.mp3"), path)
-	return err
+	return p.uploader.Upload(ctx, storage.BuildObjectKey(podcastID, "original.mp3"), path)
 }
 
-func (p *ObjectStoragePublisher) UploadChunk(ctx context.Context, podcastID string, idx int, path string) error {
+func (p *ObjectStoragePublisher) UploadChunk(ctx context.Context, podcastID string, idx int, path string) (string, error) {
 	if p.uploader == nil || path == "" {
-		return nil
+		return "", nil
 	}
 	key := storage.BuildObjectKey(podcastID, fmt.Sprintf("chunks/chunk-%03d.mp3", idx))
-	_, err := p.uploader.Upload(ctx, key, path)
-	return err
+	return p.uploader.Upload(ctx, key, path)
 }
