@@ -13,19 +13,28 @@ The default path is intentionally simple: run it on one machine, store data in `
 ## Architecture
 
 ```mermaid
-flowchart LR
-  A["React frontend"] -->|"HTTP + SSE"| B["Go API"]
-  B --> C["Ingest service"]
-  B --> D["Job manager"]
-  C --> E["Podcast metadata adapter"]
-  D --> F["Transcript provider"]
-  D --> G["Summary service"]
-  D --> H["Storage publisher"]
-  B --> I["SQLite repositories"]
-  I --> J["backend/data/podcast.db"]
-  F --> K["ffmpeg chunker"]
-  F --> L["Transcription adapter"]
-  G --> M["Summarizer adapter"]
+flowchart TB
+  UI["React frontend"] -->|"HTTP + SSE"| API["Go API handlers"]
+
+  API --> Ingest["Ingest podcast URL"]
+  API --> Jobs["Process transcript job"]
+
+  Ingest --> ITunes["Podcast metadata lookup"]
+  Ingest --> Repos["SQLite/Postgres repositories"]
+
+  Jobs --> TranscriptPipeline["Transcript pipeline"]
+  Jobs --> SummarySvc["Summary pipeline"]
+  Jobs --> Notifier["SSE progress events"]
+  Jobs --> Repos
+
+  Repos --> LocalDB["backend/data/podcast.db"]
+
+  TranscriptPipeline --> TranscriptFetch["Fetch existing transcript"]
+  TranscriptPipeline --> Downloader["Download audio"]
+  TranscriptPipeline --> FFmpeg["ffmpeg chunker"]
+  TranscriptPipeline --> Transcriber["Transcription adapter"]
+
+  SummarySvc --> SummaryClient["Summary adapter"]
 ```
 
 ## Project layout
@@ -60,6 +69,7 @@ flowchart LR
 3. Open the Vite dev URL, submit a podcast URL, and watch the transcript stream in.
 
 Local data is created under `backend/data/` and ignored by git.
+Generated media files, such as downloaded audio and ffmpeg chunks, are stored under `backend/data/storage/` in local mode and are also ignored by git.
 
 ## Backend (Go)
 1) Copy `backend/.env.example` to `backend/.env` and fill any optional values (never commit secrets).
