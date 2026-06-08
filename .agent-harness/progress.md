@@ -18,6 +18,8 @@ F006 has been implemented and evaluator-accepted. The implementation adds a test
 
 F007 has been implemented and evaluator-accepted. The implementation adds grouped transcript-segment summarization through the OpenAI summarizer adapter, deterministic no-live grouping through the configured summary client, persistence of grouped `summary_segment` rows, and source mappings in `transcript_summary_mapping`.
 
+F008 has been implemented and evaluator-accepted. The implementation persists pipeline progress through download, chunking, transcription, summarization, and completion job statuses; fails summarization errors instead of fabricating fallback summaries; and adds a deterministic SQLite-backed backend integration test for fixture-driven end-to-end processing plus idempotent artifact rewrites.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -30,11 +32,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F007 Add OpenAI summarization and transcript mapping.
+F008 Orchestrate podcast processing pipeline.
 
 ## Next Feature
 
-F008 Orchestrate podcast processing pipeline.
+F009 Expose local backend API.
 
 ## Known Issues
 

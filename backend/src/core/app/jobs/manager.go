@@ -44,9 +44,12 @@ type TranscriptOutput struct {
 	Segments     []domain.TranscriptSegment
 }
 
+// StageReporter persists user-visible pipeline progress for the current job.
+type StageReporter func(status string)
+
 // TranscriptProvider returns paragraphs and any temp file paths produced.
 type TranscriptProvider interface {
-	Provide(ctx context.Context, audioURL string, transcriptURL *string) (TranscriptOutput, error)
+	Provide(ctx context.Context, audioURL string, transcriptURL *string, report StageReporter) (TranscriptOutput, error)
 }
 
 // SummaryService produces paragraph summaries.
@@ -269,9 +272,11 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 				log.Printf("%s lock release failed key=%s err=%v", logPrefix, lockKey, err)
 			}
 		}()
-		_ = m.jobRepo.UpdateStatus(jobID, "running", nil, nil)
+		m.updateJobStatus(jobID, "running", logPrefix)
 
-		output, err := m.transcript.Provide(jobCtx, audioURL, transcriptURL)
+		output, err := m.transcript.Provide(jobCtx, audioURL, transcriptURL, func(status string) {
+			m.updateJobStatus(jobID, status, logPrefix)
+		})
 		defer cleanupFiles(append([]string{output.OriginalPath}, output.ChunkPaths...)...)
 		if err != nil {
 			m.failJob(jobID, ch, start, fmt.Sprintf("transcript pipeline failed: %v", err))
@@ -308,11 +313,22 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 			return
 		}
 
+		m.updateJobStatus(jobID, "summarizing", logPrefix)
+		if m.summary == nil {
+			m.failJob(jobID, ch, start, "summarization failed: no summary service configured")
+			log.Printf("%s summarization failed: no summary service configured", logPrefix)
+			return
+		}
 		summaryModels, err := m.summary.Summarize(output.Paragraphs)
-		if err != nil || len(summaryModels) == 0 {
-			for _, p := range output.Paragraphs {
-				summaryModels = append(summaryModels, domain.Summary{OrderIndex: p.OrderIndex, Text: "Summary: " + p.Text})
-			}
+		if err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("summarization failed: %v", err))
+			log.Printf("%s summarization failed: %v", logPrefix, err)
+			return
+		}
+		if len(summaryModels) == 0 {
+			m.failJob(jobID, ch, start, "summarization failed: summary service returned no summaries")
+			log.Printf("%s summarization failed: summary service returned no summaries", logPrefix)
+			return
 		}
 		if err := m.paras.SaveSummaries(podcastID, summaryModels); err != nil {
 			m.failJob(jobID, ch, start, fmt.Sprintf("save summaries failed: %v", err))
@@ -337,6 +353,15 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 	}()
 
 	return jobID, nil
+}
+
+func (m *Manager) updateJobStatus(jobID, status, logPrefix string) {
+	if strings.TrimSpace(status) == "" {
+		return
+	}
+	if err := m.jobRepo.UpdateStatus(jobID, status, nil, nil); err != nil {
+		log.Printf("%s status update %q failed: %v", logPrefix, status, err)
+	}
 }
 
 func (m *Manager) failJob(jobID string, ch chan []byte, start time.Time, message string) {
@@ -615,10 +640,11 @@ func NewPipelineTranscriptProvider(fetcher domain.TranscriptFetcher, downloader 
 	return &PipelineTranscriptProvider{fetcher: fetcher, downloader: downloader, chunker: chunker, transcriber: transcriber}
 }
 
-func (p *PipelineTranscriptProvider) Provide(ctx context.Context, audioURL string, transcriptURL *string) (TranscriptOutput, error) {
+func (p *PipelineTranscriptProvider) Provide(ctx context.Context, audioURL string, transcriptURL *string, report StageReporter) (TranscriptOutput, error) {
 	var paragraphs []domain.Paragraph
 
 	if transcriptURL != nil && *transcriptURL != "" && p.fetcher != nil {
+		reportStage(report, "fetching_transcript")
 		if data, err := p.fetcher.Fetch(*transcriptURL); err == nil {
 			paragraphs = splitTranscript(string(data))
 		}
@@ -629,16 +655,19 @@ func (p *PipelineTranscriptProvider) Provide(ctx context.Context, audioURL strin
 	var chunkPaths []string
 
 	if len(paragraphs) == 0 && audioURL != "" && p.downloader != nil && p.chunker != nil && p.transcriber != nil {
+		reportStage(report, "downloading")
 		path, err := p.downloader.Download(audioURL)
 		if err != nil {
 			return TranscriptOutput{}, fmt.Errorf("download audio: %w", err)
 		}
 		originalPath = path
+		reportStage(report, "chunking")
 		chunks, err := p.chunker.Chunk(path)
 		if err != nil {
 			return TranscriptOutput{OriginalPath: originalPath}, fmt.Errorf("chunk audio: %w", err)
 		}
 		chunkPaths = chunks
+		reportStage(report, "transcribing")
 		for idx, c := range chunks {
 			result, terr := transcribeChunk(p.transcriber, c)
 			if terr != nil {
@@ -657,6 +686,12 @@ func (p *PipelineTranscriptProvider) Provide(ctx context.Context, audioURL strin
 	output.OriginalPath = originalPath
 	output.ChunkPaths = chunkPaths
 	return output, nil
+}
+
+func reportStage(report StageReporter, status string) {
+	if report != nil {
+		report(status)
+	}
 }
 
 func transcribeChunk(client TranscriptionFileClient, path string) (domain.TranscriptionResult, error) {

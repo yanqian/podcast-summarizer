@@ -143,9 +143,9 @@
         "Pipeline retries or restarts do not duplicate completed artifacts for an already processed episode.",
         "A deterministic end-to-end backend test exercises the pipeline using local fixtures."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [
