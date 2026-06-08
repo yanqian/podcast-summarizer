@@ -1,11 +1,13 @@
 .env
 .env.*
+.cache/
 .gocache/
-bin/
 data/
-tmp/
 *.db
 *.db-shm
 *.db-wal
 *.log
+tmp/
+bin/
+coverage/
 *.pid

@@ -26,6 +26,8 @@ F010 has been implemented and evaluator-accepted. The implementation adds a fron
 
 F011 has been implemented and evaluator-accepted. The implementation adds a selected-episode transcript and summary viewer wired to the backend episode detail API, groups transcript segments by summary source mappings, displays unmapped transcript segments, handles loading/empty/failed/completed states, and adds frontend interaction tests with real-shaped fixture API data.
 
+F012 has local Docker demo and documentation implementation artifacts in place but is blocked pending Docker runtime verification. The implementation adds root Docker Compose for backend/frontend, container health checks, a `scripts/verify-docker-demo.sh` verifier, README/runbook updates for deterministic no-key demo mode and portfolio scope, and a static regression test for the local-only Docker demo. The Docker CLI is not installed in the current environment, so the required container startup verification could not run.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -52,3 +54,4 @@ F012 Polish local Docker demo and documentation.
 - Manual F006 coding encountered a sandbox listener limitation when using `httptest`; adapter verification now uses a fake `http.RoundTripper` fixture, so no socket binding or live OpenAI call is required.
 - Manual F010 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`) and the in-app Browser surface was unavailable (`iab` not available). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, and Vite production build; browser visual inspection remains an environment limitation for this run.
 - Manual F011 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, Vite production build, feature validation, and final root `./init.sh`; browser visual inspection remains an environment limitation for this run.
+- Manual F012 coding added the Compose demo workflow, but Docker runtime verification is blocked because `docker` is not installed in this environment (`scripts/verify-docker-demo.sh` exits 127). Non-Docker verification passes; F012 must remain incomplete until `./scripts/verify-docker-demo.sh` runs successfully in an environment with Docker Compose.

@@ -24,7 +24,12 @@ Current behavior:
 - Job manager streams transcript chunks over SSE; saves transcript/summaries to SQLite.
 - Transcript fetcher/download + ffmpeg chunker + transcriber/summarizer adapters are wired.
 - When `OPENAI_API_KEY` is set, transcription uses OpenAI `audio/transcriptions` with `OPENAI_TRANSCRIBE_MODEL` (`whisper-1` by default). `whisper-1` requests `verbose_json` segment timestamps; newer transcribe models use `json` and transcript segments are associated with the stored local audio chunk.
-- Custom HTTP adapters are still available through `TRANSCRIBE_URL/KEY` and `SUMMARIZE_URL/KEY`; otherwise local stubs keep tests and smoke checks deterministic.
+- Optional custom HTTP adapters are still available through `TRANSCRIBE_URL/KEY` and `SUMMARIZE_URL/KEY`; otherwise local stubs keep tests and smoke checks deterministic.
+
+Docker runtime:
+- The backend image includes `ffmpeg`, `curl`, and the compiled API server.
+- Compose mounts `../backend/data` to `/app/data` and sets `SQLITE_PATH=/app/data/podcast.db` plus `LOCAL_STORAGE_PATH=/app/data/storage`.
+- The container health check calls `/health`; it does not require OpenAI credentials.
 
 Tests:
 - `GOCACHE=$(pwd)/.gocache go test ./...`

@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: podcast-summarizer-backend:local
+    environment:
+      PORT: "8080"
+      SQLITE_PATH: /app/data/podcast.db
+      LOCAL_STORAGE_PATH: /app/data/storage
+      FFMPEG_PATH: ffmpeg
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-whisper-1}
+      OPENAI_SUMMARIZE_MODEL: ${OPENAI_SUMMARIZE_MODEL:-gpt-4o-mini}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    image: podcast-summarizer-frontend:local
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
