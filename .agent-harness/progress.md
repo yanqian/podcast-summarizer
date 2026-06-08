@@ -10,6 +10,8 @@ F002 has been implemented and evaluator-accepted. The implementation removes sel
 
 F003 has been implemented and evaluator-accepted. The implementation adds SQLite persistence for episodes, processing jobs, audio chunks, transcript segments, summary segments, and transcript-to-summary mappings, with backend integration tests covering URL lookup, normal artifact writes, status transitions, and mapping retrieval.
 
+F004 has been implemented and evaluator-accepted. The implementation adds pre-pipeline duplicate URL detection in backend ingestion, returns existing episode/job state for duplicate submissions, and adds backend tests proving duplicate submissions do not create another processing job.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -22,11 +24,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F003 Implement SQLite podcast processing model.
+F004 Add podcast URL ingestion and idempotency.
 
 ## Next Feature
 
-F004 Add podcast URL ingestion and idempotency.
+F005 Download and chunk podcast audio locally.
 
 ## Known Issues
 

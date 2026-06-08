@@ -15,9 +15,11 @@ type ingestRequest struct {
 }
 
 type jobAccepted struct {
-	JobID     string `json:"jobId"`
-	PodcastID string `json:"podcastId"`
-	Status    string `json:"status"`
+	JobID        string  `json:"jobId,omitempty"`
+	PodcastID    string  `json:"podcastId"`
+	Status       string  `json:"status"`
+	Existing     bool    `json:"existing"`
+	LatestStatus *string `json:"latestStatus,omitempty"`
 }
 
 // IngestHandler accepts a podcast URL, runs lookup, and enqueues processing.
@@ -41,29 +43,48 @@ func IngestHandler(svc *app.IngestService, mgr *jobs.Manager) http.HandlerFunc {
 			return
 		}
 
-		podcastID, meta, err := svc.Ingest(req.URL)
+		result, err := svc.Ingest(req.URL)
 		if err != nil {
 			log.Printf("ingest service error url=%q: %v", req.URL, err)
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
+		if result.Existing {
+			log.Printf("ingest duplicate url=%q podcast=%s status=%v", req.URL, result.PodcastID, result.Source.LatestStatus)
+			resp := jobAccepted{
+				PodcastID:    result.PodcastID,
+				Status:       "existing",
+				Existing:     true,
+				LatestStatus: result.Source.LatestStatus,
+			}
+			if result.Source.LatestJobID != nil {
+				resp.JobID = *result.Source.LatestJobID
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
 
 		audioURL := ""
-		if meta != nil {
-			audioURL = meta.AudioURL
+		var transcriptURL *string
+		if result.Metadata != nil {
+			audioURL = result.Metadata.AudioURL
+			transcriptURL = result.Metadata.TranscriptURL
 		}
-		jobID, err := mgr.StartJob(r.Context(), podcastID, audioURL, meta.TranscriptURL)
+		jobID, err := mgr.StartJob(r.Context(), result.PodcastID, audioURL, transcriptURL)
 		if err != nil {
-			log.Printf("ingest enqueue error podcast=%s url=%s: %v", podcastID, req.URL, err)
+			log.Printf("ingest enqueue error podcast=%s url=%s: %v", result.PodcastID, req.URL, err)
 			http.Error(w, "unable to enqueue job", http.StatusInternalServerError)
 			return
 		}
-		log.Printf("[job:%s] enqueued podcast=%s url=%s audio=%s", jobID, podcastID, req.URL, audioURL)
+		log.Printf("[job:%s] enqueued podcast=%s url=%s audio=%s", jobID, result.PodcastID, req.URL, audioURL)
 
 		resp := jobAccepted{
 			JobID:     jobID,
-			PodcastID: podcastID,
+			PodcastID: result.PodcastID,
 			Status:    "queued",
+			Existing:  false,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)

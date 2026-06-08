@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"errors"
 	"log"
 	neturl "net/url"
@@ -17,18 +18,38 @@ type IngestService struct {
 	ParagraphRepo domain.ParagraphRepository
 }
 
+type IngestResult struct {
+	PodcastID string
+	Metadata  *domain.PodcastMetadata
+	Source    domain.PodcastSource
+	Existing  bool
+}
+
 func NewIngestService(lookup domain.PodcastLookup, fetcher domain.TranscriptFetcher, repo domain.PodcastRepository, paraRepo domain.ParagraphRepository) *IngestService {
 	return &IngestService{Lookup: lookup, Fetcher: fetcher, Repo: repo, ParagraphRepo: paraRepo}
 }
 
 // Ingest handles URL by extracting track ID, running lookup, and saving metadata; returns podcast ID.
-func (s *IngestService) Ingest(rawURL string) (string, *domain.PodcastMetadata, error) {
+func (s *IngestService) Ingest(rawURL string) (IngestResult, error) {
+	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
-		return "", nil, errors.New("url required")
+		return IngestResult{}, errors.New("url required")
 	}
+
+	existing, err := s.Repo.GetSourceByURL(rawURL)
+	if err == nil {
+		return IngestResult{
+			PodcastID: existing.ID,
+			Source:    existing,
+			Existing:  true,
+		}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return IngestResult{}, err
+	}
+
 	trackID, showID := extractIDs(rawURL)
 	var meta *domain.PodcastMetadata
-	var err error
 	if trackID == "" {
 		// Fallback metadata when track id is missing; useful for tests or non-Apple URLs.
 		meta = &domain.PodcastMetadata{
@@ -56,9 +77,17 @@ func (s *IngestService) Ingest(rawURL string) (string, *domain.PodcastMetadata, 
 	}
 	podcastID, err := s.Repo.UpsertSource(rawURL, meta.Title, meta.Artist, nil, &meta.AudioURL, meta.TranscriptURL)
 	if err != nil {
-		return "", nil, err
+		return IngestResult{}, err
 	}
-	return podcastID, meta, nil
+	return IngestResult{
+		PodcastID: podcastID,
+		Metadata:  meta,
+		Source: domain.PodcastSource{
+			ID:    podcastID,
+			URL:   rawURL,
+			Title: meta.Title,
+		},
+	}, nil
 }
 
 // extractIDs matches the Python helper: episode id from ?i=, show id from path id<digits>.

@@ -99,17 +99,27 @@ func (r *PodcastSQLiteRepo) MarkHasTranscript(id string) error {
 
 func (r *PodcastSQLiteRepo) GetSourceByURL(url string) (domain.PodcastSource, error) {
 	const q = `
-SELECT id, podcast_url, COALESCE(title, ''), has_transcript, created_at
-FROM episode
-WHERE podcast_url = ?;`
+SELECT e.id, e.podcast_url, COALESCE(e.title, ''), e.has_transcript, e.created_at,
+	(SELECT pj.id FROM processing_job pj WHERE pj.podcast_id = e.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_job_id,
+	(SELECT pj.status FROM processing_job pj WHERE pj.podcast_id = e.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_status
+FROM episode e
+WHERE e.podcast_url = ?;`
 	var item domain.PodcastSource
 	var hasTranscript int
 	var createdAt string
-	if err := r.db.QueryRowContext(context.Background(), q, url).Scan(&item.ID, &item.URL, &item.Title, &hasTranscript, &createdAt); err != nil {
+	var latestJobID sql.NullString
+	var latestStatus sql.NullString
+	if err := r.db.QueryRowContext(context.Background(), q, url).Scan(&item.ID, &item.URL, &item.Title, &hasTranscript, &createdAt, &latestJobID, &latestStatus); err != nil {
 		return domain.PodcastSource{}, fmt.Errorf("sqlite get source by url: %w", err)
 	}
 	item.HasTranscript = hasTranscript == 1
 	item.CreatedAt = sqliteutil.ParseTime(createdAt)
+	if latestJobID.Valid {
+		item.LatestJobID = &latestJobID.String
+	}
+	if latestStatus.Valid {
+		item.LatestStatus = &latestStatus.String
+	}
 	return item, nil
 }
 

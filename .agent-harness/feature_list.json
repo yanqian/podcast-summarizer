@@ -65,9 +65,9 @@
         "The ingestion logic records clear statuses and errors for new and duplicate submissions.",
         "Backend tests prove duplicate submissions are idempotent."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [
