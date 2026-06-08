@@ -120,9 +120,7 @@ smoke_port="$(choose_port)"
 	cd "$BACKEND_DIR"
 	env \
 		PORT="$smoke_port" \
-		STORAGE_DRIVER=sqlite \
 		SQLITE_PATH="$BACKEND_SMOKE_DB" \
-		OBJECT_STORAGE_DRIVER=local \
 		LOCAL_STORAGE_PATH="$BACKEND_SMOKE_STORAGE" \
 		OPENAI_API_KEY= \
 		TRANSCRIBE_URL= \

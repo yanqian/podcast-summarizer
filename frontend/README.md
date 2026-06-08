@@ -10,7 +10,7 @@ Current behavior:
 
 Configuration:
 - `VITE_API_BASE_URL` defaults to `http://localhost:8080`.
-- When deploying the frontend to Vercel/Cloudflare Pages, set `VITE_API_BASE_URL` to the public HTTPS backend URL, such as a Cloudflare Tunnel or Tailscale Serve/Funnel URL. Avoid an `http://` backend from an HTTPS-hosted frontend because browsers will block mixed-content requests.
+- For local demos, set `VITE_API_BASE_URL` only when the backend is not listening on `http://localhost:8080`.
 
 Tests:
 - `npm test` runs vitest unit tests (UrlInput). E2E removed; reintroduce Playwright if needed.

@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
-
 	"podcast-summarizer/src/adapters/podcast"
 	"podcast-summarizer/src/adapters/summarizer"
 	"podcast-summarizer/src/adapters/transcript"
@@ -30,12 +27,10 @@ type Middleware func(http.Handler) http.Handler
 
 // Dependencies required to build the router.
 type Dependencies struct {
-	Config   config.Config
-	SQLite   *sql.DB
-	Postgres *pgxpool.Pool
-	Valkey   *redis.Client
-	Context  any
-	Storage  jobs.ObjectUploader
+	Config  config.Config
+	SQLite  *sql.DB
+	Context any
+	Storage jobs.ObjectUploader
 }
 
 // loggingMiddleware logs method, path, and duration.
@@ -81,24 +76,13 @@ func NewRouter(deps Dependencies) http.Handler {
 	var jobRepo jobs.JobRepository
 	var lock jobs.Locker
 
-	if deps.SQLite != nil {
-		podcastRepo = podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
-		paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
-		jobRepo = jobrepo.NewJobSQLiteRepo(deps.SQLite)
-		lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
-	} else if deps.Postgres != nil {
-		podcastRepo = podcastrepo.NewPodcastPgRepo(deps.Postgres)
-		paragraphRepo = paragraphrepo.NewParagraphPgRepo(deps.Postgres)
-		jobRepo = jobrepo.NewJobPgRepo(deps.Postgres)
-	} else {
-		panic("api.NewRouter requires SQLite or Postgres dependencies")
+	if deps.SQLite == nil {
+		panic("api.NewRouter requires SQLite dependencies")
 	}
-	if deps.Valkey != nil {
-		lock = lockinfra.NewValkeyLock(deps.Valkey, 5*time.Minute)
-	}
-	if lock == nil {
-		panic("api.NewRouter requires SQLite or Valkey locking")
-	}
+	podcastRepo = podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
+	paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
+	jobRepo = jobrepo.NewJobSQLiteRepo(deps.SQLite)
+	lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
 
 	transcriptFetcher := transcript.NewFetcher()
 	var transcriberClient jobs.TranscriptionFileClient = transcription.NewTranscriber()

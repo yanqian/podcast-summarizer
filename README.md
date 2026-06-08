@@ -2,11 +2,11 @@
 
 Local-first podcast ingestion and summarization app built as a portfolio project. The backend is Go with clean architecture boundaries, SQLite persistence, HTTP APIs, and SSE streaming. The frontend is Vite + React + TypeScript + Tailwind/shadcn/ui.
 
-The default path is intentionally simple: run it on one machine, store data in `backend/data/podcast.db`, and demonstrate the product workflow without needing cloud infrastructure. Postgres, Valkey, and R2 adapters remain available as optional cloud-mode extensions.
+The default path is intentionally simple: run it on one machine, store data in `backend/data/podcast.db`, and keep generated audio artifacts under `backend/data/storage`.
 
 ## What it demonstrates
 - End-to-end podcast workflow: ingest a podcast URL, fetch metadata, stream transcription progress, summarize aligned transcript paragraphs, and export results.
-- Local-first persistence with SQLite by default, plus repository adapters for optional Postgres mode.
+- Local-first persistence with SQLite as the only database runtime.
 - Streaming UX via Server-Sent Events from Go to React.
 - External-service boundaries for transcription, summarization, media chunking, object storage, and podcast metadata lookup.
 
@@ -20,7 +20,7 @@ flowchart TB
   API --> Jobs["Process transcript job"]
 
   Ingest --> ITunes["Podcast metadata lookup"]
-  Ingest --> Repos["SQLite/Postgres repositories"]
+  Ingest --> Repos["SQLite repositories"]
 
   Jobs --> TranscriptPipeline["Transcript pipeline"]
   Jobs --> SummarySvc["Summary pipeline"]
@@ -40,7 +40,7 @@ flowchart TB
 ## Project layout
 - `backend/`: Go services, adapters, infra, and jobs; entrypoint at `cmd/server`.
 - `frontend/`: Vite SPA, pages/components/hooks/services; talks to the backend API.
-- `DEPLOYMENT.md`: Local, Docker, and optional cloud-mode runbook.
+- `DEPLOYMENT.md`: Local and Docker demo runbook.
 - `specs/`: planning artifacts.
 
 ## Prerequisites
@@ -87,18 +87,13 @@ Generated media files, such as downloaded audio and ffmpeg chunks, are stored un
    - Lint: `make lint` (requires golangci-lint installed)
 
 Key env vars (`backend/src/config/config.go`):
-- `STORAGE_DRIVER`: defaults to `sqlite`; set `postgres` to use Postgres.
 - `SQLITE_PATH`: defaults to `data/podcast.db`.
 - `API_BASE_URL` (public base for building links)
 - `FFMPEG_PATH`
 - Transcription adapters: `TRANSCRIBE_URL`, `TRANSCRIBE_KEY`
 - Summarization adapters: `SUMMARIZE_URL`, `SUMMARIZE_KEY`
 - OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`
-- Object storage: `OBJECT_STORAGE_DRIVER` defaults to `local`, storing generated audio/chunk artifacts under `LOCAL_STORAGE_PATH` (`data/storage`).
-
-Optional cloud-mode env vars:
-- `POSTGRES_URL`, `VALKEY_URL`: required together when `STORAGE_DRIVER=postgres`.
-- `OBJECT_STORAGE_DRIVER=r2` plus `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_PUBLIC_BASE_URL`.
+- `LOCAL_STORAGE_PATH`: stores generated audio/chunk artifacts under `data/storage` by default.
 
 ## Frontend (Vite + React)
 From `frontend/`:
@@ -108,14 +103,13 @@ From `frontend/`:
 - Lint: `npm run lint`
 - Test: `npm test` (Vitest + jsdom)
 
-## Deployment
-For a resume/demo project, the recommended deployment story is local or single-machine Docker. The included Dockerfiles are useful for packaging and demos, but cloud deployment is optional.
+## Demo Packaging
+For a resume/demo project, the recommended story is local execution or single-machine Docker. The included Dockerfiles package only the backend, frontend, SQLite database path, and local storage directory.
 
 See `DEPLOYMENT.md` for:
 - Local demo commands
 - Docker build/run commands
 - A lightweight portfolio demo checklist
-- Optional cloud-mode notes for Postgres, Valkey, R2, or Cloud Run
 
 ## Contributing / workflow
 - Keep backend/frontend changes in sync via the monorepo.

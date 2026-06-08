@@ -6,6 +6,8 @@ Harness is installed and runnable. The project minspec for a local-first podcast
 
 F001 has been implemented and evaluator-accepted. Root `./init.sh` now runs harness verification, backend Go tests, frontend tests/build, and a deterministic local SQLite backend smoke check without live OpenAI credentials.
 
+F002 has been implemented and evaluator-accepted. The implementation removes selectable Postgres, Valkey/Redis, R2, cloud-mode, and non-SQLite runtime paths from project-owned backend code and docs, keeps SQLite/local filesystem as the only runtime path, and adds a backend static test that prevents reintroducing required non-SQLite storage dependencies or env knobs in the default runtime.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -18,15 +20,14 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F001 Create local-first runnable skeleton.
+F002 Remove cloud and non-SQLite runtime paths.
 
 ## Next Feature
 
-F002 Remove cloud and non-SQLite runtime paths.
+F003 Implement SQLite podcast processing model.
 
 ## Known Issues
 
-- The existing app implementation and docs may still contain obsolete cloud, Postgres, Valkey, cache, or deployment assumptions until F002 is completed.
 - Real OpenAI processing will require `OPENAI_API_KEY`, but routine tests and smoke checks must not require live credentials.
 - Audio chunking may require selecting and documenting a local tool such as `ffmpeg` during F005.
 - The Codex provider adapter produced completed coding work and an evaluator pass, but the orchestrator still recorded a non-zero coding-provider failure. Future unattended rounds may need provider adapter hardening if this repeats.

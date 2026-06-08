@@ -43,12 +43,6 @@ type JobRepository interface {
 	Get(id string) (ProcessingJob, error)
 }
 
-type Cache interface {
-	Set(key string, value []byte) error
-	Get(key string) ([]byte, error)
-	Delete(key string) error
-}
-
 type Paragraph struct {
 	OrderIndex int
 	Text       string

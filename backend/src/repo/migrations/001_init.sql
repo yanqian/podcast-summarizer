@@ -1,50 +1,58 @@
--- schema for podcast summarizer
+-- SQLite schema for the local-first podcast summarizer runtime.
 
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
 
 CREATE TABLE IF NOT EXISTS podcast_source (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY,
     url TEXT NOT NULL UNIQUE,
     title TEXT,
     description TEXT,
     duration_seconds INTEGER,
-    has_transcript BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    audio_url TEXT,
+    transcript_url TEXT,
+    has_transcript INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS transcript_paragraph (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    podcast_id UUID NOT NULL REFERENCES podcast_source(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    podcast_id TEXT NOT NULL REFERENCES podcast_source(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL,
     text TEXT NOT NULL,
     timestamp_seconds INTEGER,
-    source TEXT NOT NULL DEFAULT 'provided',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source TEXT NOT NULL DEFAULT 'generated',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (podcast_id, order_index)
 );
 
 CREATE TABLE IF NOT EXISTS summary_paragraph (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    transcript_paragraph_id UUID NOT NULL REFERENCES transcript_paragraph(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    transcript_paragraph_id TEXT NOT NULL REFERENCES transcript_paragraph(id) ON DELETE CASCADE,
     summary_text TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (transcript_paragraph_id)
 );
 
 CREATE TABLE IF NOT EXISTS processing_job (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    podcast_id UUID NOT NULL REFERENCES podcast_source(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('ingest', 'transcribe', 'summarize')),
-    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
-    started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at TIMESTAMPTZ,
+    id TEXT PRIMARY KEY,
+    podcast_id TEXT NOT NULL REFERENCES podcast_source(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
     duration_ms INTEGER,
     error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Ensure only one active job (queued or running) per podcast/type at a time
-CREATE UNIQUE INDEX IF NOT EXISTS processing_job_active_idx
-    ON processing_job (podcast_id, type)
-    WHERE status IN ('queued', 'running');
+CREATE INDEX IF NOT EXISTS processing_job_podcast_created_idx
+    ON processing_job (podcast_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS job_lock (
+    key TEXT PRIMARY KEY,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

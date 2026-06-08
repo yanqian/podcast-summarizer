@@ -16,7 +16,7 @@ Spec: specs/001-podcast-summary-ui/spec.md
 
 ### Paragraph alignment strategy
 - **Decision**: Normalize transcript into paragraph array with stable IDs and optional timestamps; summaries
-  link 1:1 by paragraph ID; store both in Postgres with ordering; cache assembled pairs in Valkey.
+  link 1:1 by paragraph ID; store both in SQLite with ordering.
 - **Rationale**: Guarantees consistent left/right alignment and enables re-run of summaries without refetching
   text.
 - **Alternatives considered**: (1) Sentence-level alignment (more granular but harder to display cleanly);
@@ -24,7 +24,7 @@ Spec: specs/001-podcast-summary-ui/spec.md
 
 ### Long-running job handling
 - **Decision**: Submit ingestion as a job with statuses (queued, running, succeeded, failed); expose status API
-  polled by frontend; prevent duplicate active jobs per URL using Valkey locks.
+  polled by frontend; prevent duplicate active jobs per URL using SQLite-backed locks.
 - **Rationale**: Meets UX requirement for progress, avoids duplicate processing, supports 5-minute SLA for
   transcription + summarization.
 - **Alternatives considered**: (1) Synchronous request (would timeout for transcription); (2) Client-side only
@@ -38,7 +38,7 @@ Spec: specs/001-podcast-summary-ui/spec.md
   paragraphs).
 
 ### Performance instrumentation
-- **Decision**: Log timings for transcript fetch/transcription/summarization and cache hits; expose duration
+- **Decision**: Log timings for transcript fetch/transcription/summarization; expose duration
   fields in job status; collect frontend render timing (e.g., interaction timing) for p95 checks.
 - **Rationale**: Enables validation of constitution performance budgets and quick regression detection.
 - **Alternatives considered**: (1) No explicit timings (violates performance principle); (2) sampling only

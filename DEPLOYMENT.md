@@ -1,8 +1,6 @@
 # Running and Demoing
 
-This project is optimized as a local-first portfolio demo. The default setup uses SQLite and local file storage, so a reviewer can run the full app without provisioning Google Cloud, Postgres, Valkey, or object storage.
-
-Cloud-style adapters are still present in the codebase, but they are optional extensions rather than the recommended path.
+This project is optimized as a local-first portfolio demo. The setup uses SQLite and local file storage, so a reviewer can run the full app on one machine.
 
 ## Recommended Demo Path
 
@@ -40,9 +38,7 @@ Local data lives under `backend/data/` and is ignored by git.
 The backend defaults are enough for a demo:
 
 ```text
-STORAGE_DRIVER=sqlite
 SQLITE_PATH=data/podcast.db
-OBJECT_STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=data/storage
 FFMPEG_PATH=ffmpeg
 ```
@@ -76,13 +72,11 @@ Run it with a mounted data directory:
 ```bash
 mkdir -p backend/data
 docker run --rm \
-  -p 8080:8080 \
-  -v "$PWD/backend/data:/app/data" \
-  --env STORAGE_DRIVER=sqlite \
-  --env SQLITE_PATH=data/podcast.db \
-  --env OBJECT_STORAGE_DRIVER=local \
-  --env LOCAL_STORAGE_PATH=data/storage \
-  podcast-api:local
+	-p 8080:8080 \
+	-v "$PWD/backend/data:/app/data" \
+	--env SQLITE_PATH=data/podcast.db \
+	--env LOCAL_STORAGE_PATH=data/storage \
+	podcast-api:local
 ```
 
 Build the frontend image. `VITE_API_BASE_URL` is baked into the static bundle at build time:
@@ -103,11 +97,10 @@ Open `http://localhost:8081`.
 
 ## Portfolio Notes
 
-For a resume or project page, emphasize the engineering choices rather than cloud plumbing:
+For a resume or project page, emphasize the engineering choices rather than infrastructure plumbing:
 
 - Clean architecture in Go with repository and adapter boundaries.
-- SQLite as the default because the project is easy to run and inspect.
-- Optional Postgres/Valkey implementations to show cloud-readiness without requiring cloud setup.
+- SQLite as the runtime database because the project is easy to run and inspect.
 - SSE streaming from backend jobs to the React UI.
 - Media pipeline integration around download, `ffmpeg` chunking, transcription, summarization, and export.
 
@@ -116,34 +109,6 @@ Suggested demo assets:
 - A short screen recording of ingest -> streaming transcript -> summary view.
 - A screenshot of the podcast list after restarting the backend to show persistence.
 - A small architecture diagram or the Mermaid diagram from `README.md`.
-
-## Optional Cloud Mode
-
-Use cloud mode only if you specifically want to demonstrate deployment experience. It is not necessary for the main portfolio story.
-
-Cloud mode requires:
-
-- `STORAGE_DRIVER=postgres`
-- `POSTGRES_URL`
-- `VALKEY_URL`
-- A migrated Postgres schema:
-
-  ```bash
-  psql "$POSTGRES_URL" -f backend/src/repo/migrations/001_init.sql
-  ```
-
-For durable generated media in a stateless environment, also configure R2:
-
-```text
-OBJECT_STORAGE_DRIVER=r2
-R2_ENDPOINT=
-R2_BUCKET=
-R2_ACCESS_KEY=
-R2_SECRET_KEY=
-R2_PUBLIC_BASE_URL=
-```
-
-The backend listens on `$PORT` when set, so it can run on platforms like Cloud Run, Fly.io, Render, or a simple VM. The frontend can be served from the included nginx image or from a static host; set `VITE_API_BASE_URL` to the public HTTPS backend URL before building.
 
 ## Checks
 

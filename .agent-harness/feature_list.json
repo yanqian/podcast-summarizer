@@ -26,9 +26,9 @@
         "Docker and local scripts start only the services required for local frontend/backend operation.",
         "Tests or static checks prevent reintroducing required non-SQLite storage in the default runtime."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [

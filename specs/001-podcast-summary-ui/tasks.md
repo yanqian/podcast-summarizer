@@ -39,7 +39,7 @@ regressions must be captured with targeted tests.
 - [X] T001 Create project structure per plan at /Users/yanqiang/Ai/podcast-summarizer/{backend,frontend}/ with src/, tests/, and config directories
 - [X] T002 Initialize frontend (Vite + React + TypeScript + Tailwind + shadcn/ui) at /Users/yanqiang/Ai/podcast-summarizer/frontend/ with base layout and lint/format configs
 - [X] T003 Initialize backend Go module with clean architecture scaffolding at /Users/yanqiang/Ai/podcast-summarizer/backend/ and add lint/format tooling (gofmt/golangci-lint)
-- [X] T004 Add shared environment templates (.env.example) for Postgres, Valkey, and API base URLs at /Users/yanqiang/Ai/podcast-summarizer/
+- [X] T004 Add shared environment templates (.env.example) for SQLite, local storage, and API base URLs at /Users/yanqiang/Ai/podcast-summarizer/
 - [X] T005 Configure shared gitignore and tooling configs for frontend/backed outputs at /Users/yanqiang/Ai/podcast-summarizer/.gitignore
 
 ---
@@ -50,10 +50,10 @@ regressions must be captured with targeted tests.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Create initial Postgres migrations for podcast_source, transcript_paragraph, summary_paragraph, processing_job tables at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/migrations/001_init.sql
-- [X] T007 Implement Valkey client wrapper and duplicate-job locking utilities at /Users/yanqiang/Ai/podcast-summarizer/backend/src/cache/valkey.go
+- [X] T006 Create initial SQLite schema for podcast_source, transcript_paragraph, summary_paragraph, processing_job, and job_lock tables at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/migrations/001_init.sql
+- [X] T007 Implement SQLite duplicate-job locking utilities at /Users/yanqiang/Ai/podcast-summarizer/backend/src/infra/lock/sqlite_lock.go
 - [X] T008 Set up HTTP router/middleware (logging, request validation, error mapping) at /Users/yanqiang/Ai/podcast-summarizer/backend/src/api/router.go
-- [X] T009 Define domain models and interfaces for repositories, cache, and transcription/summarization adapters at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/contracts.go
+- [X] T009 Define domain models and interfaces for repositories and transcription/summarization adapters at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/contracts.go
 - [X] T010 Add observability hooks for external calls and job timing (structured logs/metrics) at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/observability.go
 - [X] T011 Scaffold frontend API client with error handling and base types at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/services/client.ts
 - [X] T012 Add job status polling utility with cancellation/backoff at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/services/jobPolling.ts
@@ -85,12 +85,12 @@ regressions must be captured with targeted tests.
 - [X] T019 [US1] Implement ingest service to persist podcast source and paragraphs with alignment at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/ingest_service.go
 - [X] T020 [US1] Implement HTTP handlers for ingest and job acceptance at /Users/yanqiang/Ai/podcast-summarizer/backend/src/api/handlers/ingest.go
 - [X] T021 [US1] Implement view endpoint returning transcript + summaries alignment at /Users/yanqiang/Ai/podcast-summarizer/backend/src/api/handlers/view.go
-- [X] T022 [US1] Implement Postgres repositories for podcast and paragraph persistence at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/podcast_repository.go
-- [X] T023 [US1] Add Valkey caching for paragraph pairs and duplicate request suppression at /Users/yanqiang/Ai/podcast-summarizer/backend/src/cache/pairs.go
+- [X] T022 [US1] Implement SQLite repositories for podcast and paragraph persistence at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/
+- [X] T023 [US1] Add duplicate request suppression with SQLite-backed locks at /Users/yanqiang/Ai/podcast-summarizer/backend/src/infra/lock/sqlite_lock.go
 - [X] T024 [US1] Build side-by-side layout components and page for transcript/summary display at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/pages/PodcastView.tsx
 - [X] T025 [US1] Implement frontend API client methods and polling for ingest/view at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/services/podcastClient.ts
 - [X] T026 [US1] Add UX states for errors, loading, and alignment mismatch handling at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/components/StatusBanner.tsx
-- [X] T027 [US1] Add logging/instrumentation for ingest/view durations and cache hits at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/metrics_ingest_view.go
+- [X] T027 [US1] Add logging/instrumentation for ingest/view durations at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/metrics_ingest_view.go
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -111,7 +111,7 @@ regressions must be captured with targeted tests.
 ### Implementation for User Story 2
 
 - [X] T031 [US2] Implement transcription adapter client and interface at /Users/yanqiang/Ai/podcast-summarizer/backend/src/adapters/transcription/client.go
-- [X] T032 [US2] Implement summarize-after-transcribe job workflow with Valkey lock at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/jobs/transcribe_worker.go
+- [X] T032 [US2] Implement summarize-after-transcribe job workflow with SQLite lock at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/jobs/transcribe_worker.go
 - [X] T033 [US2] Extend job status API with durations/error fields for transcription path at /Users/yanqiang/Ai/podcast-summarizer/backend/src/api/handlers/job_status.go
 - [X] T034 [US2] Update frontend polling and progress UI for transcription jobs at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/services/jobPolling.ts
 - [X] T035 [US2] Add frontend components for progress indicators and retry affordances at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/components/ProgressIndicator.tsx
@@ -204,7 +204,7 @@ Task: "Playwright e2e for ingest + side-by-side rendering using mocked transcrip
 
 # Launch all models/services for User Story 1 together where independent:
 Task: "Implement transcript fetcher adapter (existing transcripts/captions) at /Users/yanqiang/Ai/podcast-summarizer/backend/src/adapters/transcript/fetcher.go"
-Task: "Implement Postgres repositories for podcast and paragraph persistence at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/podcast_repository.go"
+Task: "Implement SQLite repositories for podcast and paragraph persistence at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/"
 Task: "Build side-by-side layout components and page for transcript/summary display at /Users/yanqiang/Ai/podcast-summarizer/frontend/src/pages/PodcastView.tsx"
 ```
 
@@ -218,14 +218,14 @@ Task: "Build side-by-side layout components and page for transcript/summary disp
 2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
 3. Complete Phase 3: User Story 1
 4. **STOP and VALIDATE**: Test User Story 1 independently
-5. Deploy/demo if ready
+5. Demo if ready
 
 ### Incremental Delivery
 
 1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
+2. Add User Story 1 → Test independently → Demo (MVP!)
+3. Add User Story 2 → Test independently → Demo
+4. Add User Story 3 → Test independently → Demo
 5. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy

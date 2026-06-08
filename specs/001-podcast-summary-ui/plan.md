@@ -20,8 +20,8 @@ summaries for each paragraph. Provide export/copy, error handling, and status/pr
 -->
 
 **Language/Version**: TypeScript (Vite + React) for frontend; Go (latest stable) for backend (clean architecture).  
-**Primary Dependencies**: Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; database/sql with pure-Go SQLite for demo storage; optional Postgres and Valkey clients for cloud mode.  
-**Storage**: SQLite by default for persisted podcast source metadata, transcript paragraphs, summaries, job status, and single-process job locking; optional PostgreSQL plus Valkey for cloud deployments.  
+**Primary Dependencies**: Vite, React, TypeScript, Tailwind, shadcn/ui on frontend; Go stdlib + HTTP router, streaming client, summarization/transcription adapters; database/sql with pure-Go SQLite for storage.  
+**Storage**: SQLite for persisted podcast source metadata, transcript paragraphs, summaries, job status, and single-process job locking.  
 **Testing**: Frontend: vitest + @testing-library/react + playwright for integration; Backend: go test with table-driven unit tests, lightweight SQLite/default-mode integration, and contract tests for HTTP handlers.  
 **Target Platform**: Web frontend; backend services on Linux container/runtime.  
 **Project Type**: Web application with separate frontend and backend.  
@@ -36,11 +36,11 @@ summaries for each paragraph. Provide export/copy, error handling, and status/pr
 - Code Quality: frontend and backend separated; clean architecture on backend to isolate transport/core;
   lint/formatters (eslint/prettier, gofmt/golangci-lint) and dependency justification required.
 - Testing Discipline: plan includes unit + integration/contract + regression tests; coverage ≥85% of touched
-  code; playwright for UX validation; backend integration uses SQLite/default mode, with optional Postgres/Valkey coverage for cloud mode.
+  code; playwright for UX validation; backend integration uses SQLite mode.
 - UX Consistency: define standard UI layout (left transcript/right summary), predictable error states, copy/
   export affordances, and progress indicators; acceptance notes captured in specs/tasks.
 - Performance & Efficiency: budgets set above (<200ms UI interactions; <10s with existing transcripts; <5m
-  for transcription+summary), instrument external calls and job durations; use optional Valkey only when distributed locking/caching is needed.
+  for transcription+summary), instrument external calls and job durations; use SQLite-backed locking for duplicate suppression.
 - Definition of Done: logs/observability around external calls and job timings, documentation updates (UI
   usage/export), release verification notes on tests, UX validation, performance checks.
 
@@ -72,12 +72,12 @@ backend/
 │   ├── api/              # HTTP handlers, request/response DTOs
 │   ├── core/             # use cases, services (transcription, summarization)
 │   ├── adapters/         # transcript fetchers, summarizer/transcriber clients
-│   ├── repo/             # postgres implementations
-│   ├── cache/            # valkey client + caching policies
+│   ├── repo/             # SQLite implementations
+│   ├── infra/lock        # SQLite job locking
 │   └── config/
 └── tests/
     ├── unit/
-    ├── integration/      # hits Postgres/Valkey
+    ├── integration/      # exercises SQLite/local runtime
     └── contract/         # HTTP contract tests
 
 frontend/

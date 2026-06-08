@@ -25,15 +25,11 @@ Branch: 001-podcast-summary-ui
 - **Fields**: id (uuid), podcast_id (uuid FK), type (enum: ingest|transcribe|summarize), status (enum:
   queued|running|succeeded|failed), started_at (timestamp), completed_at (timestamp?), error_message (string?),
   duration_ms (int?), created_at (timestamp)
-- **Rules**: one active job per podcast/type enforced via cache lock; status transitions follow queued → running
+- **Rules**: one active job per podcast/type enforced via SQLite lock; status transitions follow queued → running
   → succeeded/failed.
 - **Relationships**: Belongs to PodcastSource.
-
-## Derived/Cache Structures
-- **ParagraphPairCache** (Valkey): key by podcast url/hash; value: ordered list of {paragraph_id, text,
-  summary_text}; TTL configurable; invalidated on re-run.
 
 ## Validation & Alignment
 - Paragraph alignment enforced by shared order_index and transcript_paragraph_id between transcript and summary.
 - Jobs must not start summarize before transcript paragraphs exist; re-run summarization allowed without
-  re-fetching transcript if cached/stored.
+  re-fetching transcript if already stored.

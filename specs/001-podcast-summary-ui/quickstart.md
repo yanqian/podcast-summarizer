@@ -7,7 +7,6 @@ Branch: 001-podcast-summary-ui
 
 - Go 1.25+, Node.js + npm
 - ffmpeg on PATH for audio transcription flows
-- Optional: Postgres/Valkey only when running cloud mode
 
 ## Setup
 
@@ -18,35 +17,11 @@ Branch: 001-podcast-summary-ui
 ## Run
 
 1. Backend: `cd backend && go run ./cmd/server` (exposes REST API per contracts/openapi.yaml)
-   - Defaults to SQLite at `backend/data/podcast.db`; no Postgres/Valkey required.
+   - Uses SQLite at `backend/data/podcast.db` unless `SQLITE_PATH` is set.
    - Defaults to local file storage at `backend/data/storage` for generated audio/chunk artifacts.
    - Uses SSE at `/api/streams/transcript/{jobId}` for chunk streaming.
 2. Frontend: `cd frontend && npm run dev` (Vite dev server)
 3. Open app, paste a podcast URL, observe streaming transcript chunks, and view aligned transcript/summary when complete.
-
-### Optional Postgres/Valkey Mode
-
-Set these env vars before starting the backend:
-
-```bash
-STORAGE_DRIVER=postgres
-POSTGRES_URL=postgres://user:password@host:5432/podcast_summarizer?sslmode=require
-VALKEY_URL=redis://default:password@host:6379
-```
-
-Postgres mode requires `VALKEY_URL`; default SQLite mode does not.
-
-### Optional R2 Storage
-
-Default demo mode stores generated artifacts locally. To use Cloudflare R2 instead:
-
-```bash
-OBJECT_STORAGE_DRIVER=r2
-R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-R2_BUCKET=podcast-artifacts
-R2_ACCESS_KEY=...
-R2_SECRET_KEY=...
-```
 
 ## Tests
 
@@ -69,5 +44,5 @@ R2_SECRET_KEY=...
 ## Current Status
 
 - SSE streaming implemented with stubbed transcription/summarization; replace stubs with real services before release.
-- SQLite-first demo storage implemented; Postgres/Valkey remain optional cloud dependencies.
+- SQLite-only demo storage implemented.
 - Frontend deps installed via npm; backend tests pass; frontend unit test runs via vitest; no e2e runner.
