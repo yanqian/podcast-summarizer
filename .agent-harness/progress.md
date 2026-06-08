@@ -26,7 +26,7 @@ F010 has been implemented and evaluator-accepted. The implementation adds a fron
 
 F011 has been implemented and evaluator-accepted. The implementation adds a selected-episode transcript and summary viewer wired to the backend episode detail API, groups transcript segments by summary source mappings, displays unmapped transcript segments, handles loading/empty/failed/completed states, and adds frontend interaction tests with real-shaped fixture API data.
 
-F012 has local Docker demo and documentation implementation artifacts in place but is blocked pending Docker runtime verification. The implementation adds root Docker Compose for backend/frontend, container health checks, a `scripts/verify-docker-demo.sh` verifier, README/runbook updates for deterministic no-key demo mode and portfolio scope, and a static regression test for the local-only Docker demo. Docker CLI/Compose are installed in the current environment, but Docker API access is denied at the active Colima socket, so the required container startup verification could not run.
+F012 has been implemented and evaluator-accepted. The implementation adds root Docker Compose for backend/frontend, container health checks, a `scripts/verify-docker-demo.sh` verifier, README/runbook updates for deterministic no-key demo mode and portfolio scope, and a static regression test for the local-only Docker demo. An orchestrator-dispatched evaluator provider ran the documented Docker Compose demo verifier successfully against the local Colima Docker API, proving backend health, backend podcast list, frontend health, and automatic cleanup.
 
 The rewrite direction is:
 
@@ -40,11 +40,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F011 Build transcript and summary viewer.
+F012 Polish local Docker demo and documentation.
 
 ## Next Feature
 
-F012 Polish local Docker demo and documentation.
+All planned features are complete.
 
 ## Known Issues
 
@@ -54,5 +54,4 @@ F012 Polish local Docker demo and documentation.
 - Manual F006 coding encountered a sandbox listener limitation when using `httptest`; adapter verification now uses a fake `http.RoundTripper` fixture, so no socket binding or live OpenAI call is required.
 - Manual F010 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`) and the in-app Browser surface was unavailable (`iab` not available). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, and Vite production build; browser visual inspection remains an environment limitation for this run.
 - Manual F011 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, Vite production build, feature validation, and final root `./init.sh`; browser visual inspection remains an environment limitation for this run.
-- Manual F012 coding added the Compose demo workflow, but Docker runtime verification is blocked because the active Colima Docker socket denies access in this environment (`./scripts/verify-docker-demo.sh` exits 1 with Docker API permission denied). Non-Docker verification passes; F012 must remain incomplete until `./scripts/verify-docker-demo.sh` runs successfully in an environment with Docker Compose and Docker API access.
-- Manual F012 retry on 2026-06-08 confirmed the same Docker API capability gap: Docker CLI/Compose are installed, root `./init.sh` passes, but `./scripts/verify-docker-demo.sh` still exits 1 before service startup because the active Colima socket denies API access.
+- F012 was initially blocked by Docker API access from the sandboxed provider, then completed after using the harness custom-provider contract for an orchestrator-dispatched local evaluator with Docker API access. The final Docker verifier passed through `./scripts/verify-docker-demo.sh`.

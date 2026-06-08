@@ -222,10 +222,10 @@
         "Obsolete deployment instructions are removed or clearly marked out of scope.",
         "A final local verification command proves the documented demo path works."
       ],
-      "passes": false,
-      "status": "blocked",
-      "attempts": 3,
-      "last_error": "capability_gap: Docker CLI/Compose is installed, but Docker API access is denied at the active Colima socket, so acceptance criteria requiring local Docker startup and final documented demo verification remain unproven; harness improvement: none required because the gap is recorded and F012 remains blocked with a durable verifier.",
+      "passes": true,
+      "status": "done",
+      "attempts": 4,
+      "last_error": "",
       "priority": "P2",
       "depends_on": [
         "F010",
