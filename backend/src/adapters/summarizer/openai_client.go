@@ -2,30 +2,45 @@ package summarizer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"podcast-summarizer/src/core/domain"
 )
+
+const openAIChatCompletionsEndpoint = "https://api.openai.com/v1/chat/completions"
 
 // OpenAISummarizer calls OpenAI chat completions to summarize paragraphs.
 type OpenAISummarizer struct {
-	APIKey string
-	Model  string
-	Client *http.Client
+	APIKey   string
+	Model    string
+	Endpoint string
+	Client   *http.Client
 }
 
 type structuredSummary struct {
 	Discussion string `json:"discussion"`
 }
 
+type structuredSummarySegment struct {
+	Summary   string   `json:"summary"`
+	SourceIDs []string `json:"source_ids"`
+}
+
 func NewOpenAISummarizer(apiKey, model string) *OpenAISummarizer {
+	if model == "" {
+		model = "gpt-4o-mini"
+	}
 	return &OpenAISummarizer{
-		APIKey: apiKey,
-		Model:  model,
-		Client: &http.Client{Timeout: 60 * time.Second},
+		APIKey:   apiKey,
+		Model:    model,
+		Endpoint: openAIChatCompletionsEndpoint,
+		Client:   &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -52,7 +67,107 @@ func (s *OpenAISummarizer) Summarize(paragraphs []string) ([]string, error) {
 	return out, nil
 }
 
+func (s *OpenAISummarizer) SummarizeTranscriptSegments(ctx context.Context, segments []domain.TranscriptSegment) (domain.SummaryResult, error) {
+	if strings.TrimSpace(s.APIKey) == "" {
+		return domain.SummaryResult{}, fmt.Errorf("openai summarization requires OPENAI_API_KEY")
+	}
+	if strings.TrimSpace(s.Model) == "" {
+		return domain.SummaryResult{}, fmt.Errorf("openai summarization requires a model")
+	}
+	if len(segments) == 0 {
+		return domain.SummaryResult{}, fmt.Errorf("no transcript segments to summarize")
+	}
+	for _, segment := range segments {
+		if strings.TrimSpace(segment.ID) == "" {
+			return domain.SummaryResult{}, fmt.Errorf("transcript segment %d has no id", segment.OrderIndex)
+		}
+	}
+
+	var transcriptBuilder strings.Builder
+	for _, segment := range segments {
+		text := strings.TrimSpace(segment.Text)
+		if text == "" {
+			continue
+		}
+		transcriptBuilder.WriteString(fmt.Sprintf("- id: %s\n  order: %d\n  text: %s\n", segment.ID, segment.OrderIndex, text))
+	}
+	if transcriptBuilder.Len() == 0 {
+		return domain.SummaryResult{}, fmt.Errorf("no transcript text to summarize")
+	}
+
+	payload := map[string]any{
+		"model": s.Model,
+		"messages": []map[string]string{
+			{
+				"role":    "system",
+				"content": "Return strict JSON only. Output must be a JSON array of objects with summary and source_ids keys.",
+			},
+			{
+				"role": "user",
+				"content": "Summarize this podcast transcript into ordered summary segments.\n" +
+					"Each summary segment may cover one or more adjacent transcript segments.\n" +
+					"Every source_ids entry must be an id from the input, and each input id should appear exactly once.\n" +
+					"Return ONLY JSON shaped like [{\"summary\":\"...\",\"source_ids\":[\"...\"]}].\n\nTranscript segments:\n" +
+					transcriptBuilder.String(),
+			},
+		},
+		"temperature": 0.2,
+	}
+	body, _ := json.Marshal(payload)
+	endpoint := s.Endpoint
+	if endpoint == "" {
+		endpoint = openAIChatCompletionsEndpoint
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return domain.SummaryResult{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.APIKey)
+
+	client := s.Client
+	if client == nil {
+		client = &http.Client{Timeout: 60 * time.Second}
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return domain.SummaryResult{}, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return domain.SummaryResult{}, fmt.Errorf("openai summarize failed: %s (%s)", resp.Status, string(b))
+	}
+	var out struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return domain.SummaryResult{}, err
+	}
+	if len(out.Choices) == 0 {
+		return domain.SummaryResult{}, fmt.Errorf("no choices returned")
+	}
+	summarySegments, err := parseStructuredSummarySegments(normalizeContent(out.Choices[0].Message.Content), segments)
+	if err != nil {
+		return domain.SummaryResult{}, err
+	}
+	return domain.SummaryResult{
+		Segments: summarySegments,
+		Provider: "openai",
+		Model:    s.Model,
+	}, nil
+}
+
 func (s *OpenAISummarizer) summarizeBatch(paragraphs []string) ([]string, error) {
+	if strings.TrimSpace(s.APIKey) == "" {
+		return nil, fmt.Errorf("openai summarization requires OPENAI_API_KEY")
+	}
 	var promptBuilder strings.Builder
 	promptBuilder.WriteString("You are summarizing human dialogue.\n\nReturn ONLY a valid JSON array (no code fences, no extra text) with EXACTLY the same number of items as paragraphs, in the same order.\n\nEach item MUST be an object with EXACTLY this key:\n- \"discussion\": a string, less than 10 sentences(based on the paragraph length), information-dense, preserving key requests, answers, decisions, follow-ups, action items, and any numbers/quotes/facts. Do not speculate.\n\nOutput schema example:\n[{\"discussion\":\"...\"}]\n\nParagraphs:\n")
 	for i, p := range paragraphs {
@@ -68,14 +183,22 @@ func (s *OpenAISummarizer) summarizeBatch(paragraphs []string) ([]string, error)
 		"temperature": 0.4,
 	}
 	b, _ := json.Marshal(payload)
-	req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(b))
+	endpoint := s.Endpoint
+	if endpoint == "" {
+		endpoint = openAIChatCompletionsEndpoint
+	}
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.APIKey)
 
-	resp, err := s.Client.Do(req)
+	client := s.Client
+	if client == nil {
+		client = &http.Client{Timeout: 60 * time.Second}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +289,56 @@ func parseSummaries(content string) ([]string, bool) {
 	}
 
 	return summaries, false
+}
+
+func parseStructuredSummarySegments(content string, transcripts []domain.TranscriptSegment) ([]domain.SummaryResultSegment, error) {
+	var raw []structuredSummarySegment
+	if err := json.Unmarshal([]byte(content), &raw); err != nil {
+		return nil, fmt.Errorf("parse summary segments: %w", err)
+	}
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("openai returned no summary segments")
+	}
+
+	validIDs := make(map[string]struct{}, len(transcripts))
+	for _, transcript := range transcripts {
+		if transcript.ID != "" {
+			validIDs[transcript.ID] = struct{}{}
+		}
+	}
+
+	result := make([]domain.SummaryResultSegment, 0, len(raw))
+	seen := map[string]struct{}{}
+	for idx, item := range raw {
+		text := strings.TrimSpace(item.Summary)
+		if text == "" {
+			return nil, fmt.Errorf("summary segment %d is empty", idx+1)
+		}
+		sourceIDs := make([]string, 0, len(item.SourceIDs))
+		for _, sourceID := range item.SourceIDs {
+			sourceID = strings.TrimSpace(sourceID)
+			if sourceID == "" {
+				continue
+			}
+			if _, ok := validIDs[sourceID]; !ok {
+				return nil, fmt.Errorf("summary segment %d references unknown transcript segment %q", idx+1, sourceID)
+			}
+			if _, exists := seen[sourceID]; exists {
+				return nil, fmt.Errorf("summary segment %d repeats transcript segment %q", idx+1, sourceID)
+			}
+			seen[sourceID] = struct{}{}
+			sourceIDs = append(sourceIDs, sourceID)
+		}
+		if len(sourceIDs) == 0 {
+			return nil, fmt.Errorf("summary segment %d has no source transcript segments", idx+1)
+		}
+		result = append(result, domain.SummaryResultSegment{
+			OrderIndex:                 idx + 1,
+			Text:                       text,
+			SourceTranscriptSegmentIDs: sourceIDs,
+		})
+	}
+	return result, nil
 }
 
 // alignSummariesToParagraphs enforces a 1:1 mapping and fills gaps with the source paragraph text.

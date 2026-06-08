@@ -54,6 +54,11 @@ type SummaryService interface {
 	Summarize(paragraphs []domain.Paragraph) ([]domain.Summary, error)
 }
 
+// TranscriptSummaryService produces grouped summaries from persisted transcript segments.
+type TranscriptSummaryService interface {
+	SummarizeSegments(ctx context.Context, segments []domain.TranscriptSegment) (domain.SummaryResult, error)
+}
+
 // StoragePublisher uploads generated artifacts; optional.
 type StoragePublisher interface {
 	UploadOriginal(ctx context.Context, podcastID string, path string) (string, error)
@@ -68,6 +73,12 @@ type AudioChunkRepository interface {
 // TranscriptSegmentRepository persists enriched generated transcript segments.
 type TranscriptSegmentRepository interface {
 	SaveTranscriptSegments(episodeID string, segments []domain.TranscriptSegment) ([]domain.TranscriptSegment, error)
+}
+
+// SummarySegmentRepository persists grouped summaries and their source transcript mappings.
+type SummarySegmentRepository interface {
+	SaveSummarySegments(episodeID string, segments []domain.SummarySegment) ([]domain.SummarySegment, error)
+	SaveTranscriptSummaryMappings(episodeID string, mappings []domain.TranscriptSummaryMapping) error
 }
 
 // Notifier handles streaming events (SSE).
@@ -92,6 +103,11 @@ type SummaryClient interface {
 	Summarize(paragraphs []string) ([]string, error)
 }
 
+// TranscriptSegmentSummaryClient can group persisted transcript segments into mapped summary segments.
+type TranscriptSegmentSummaryClient interface {
+	SummarizeTranscriptSegments(ctx context.Context, segments []domain.TranscriptSegment) (domain.SummaryResult, error)
+}
+
 // FileDownloader fetches remote media to disk.
 type FileDownloader interface {
 	Download(url string) (string, error)
@@ -114,9 +130,11 @@ type Manager struct {
 	notifier           Notifier
 	transcript         TranscriptProvider
 	summary            SummaryService
+	transcriptSummary  TranscriptSummaryService
 	storage            StoragePublisher
 	audioChunks        AudioChunkRepository
 	transcriptSegments TranscriptSegmentRepository
+	summarySegments    SummarySegmentRepository
 }
 
 func NewManager(jobRepo JobRepository, lock Locker, paras ParagraphSaver, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher) *Manager {
@@ -128,6 +146,14 @@ func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, paras Paragraph
 	if repo, ok := audioChunks.(TranscriptSegmentRepository); ok {
 		transcriptSegments = repo
 	}
+	var summarySegments SummarySegmentRepository
+	if repo, ok := audioChunks.(SummarySegmentRepository); ok {
+		summarySegments = repo
+	}
+	var transcriptSummary TranscriptSummaryService
+	if svc, ok := summary.(TranscriptSummaryService); ok {
+		transcriptSummary = svc
+	}
 	return &Manager{
 		jobRepo:            jobRepo,
 		lock:               lock,
@@ -135,9 +161,11 @@ func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, paras Paragraph
 		notifier:           notifier,
 		transcript:         transcript,
 		summary:            summary,
+		transcriptSummary:  transcriptSummary,
 		storage:            storage,
 		audioChunks:        audioChunks,
 		transcriptSegments: transcriptSegments,
+		summarySegments:    summarySegments,
 	}
 }
 
@@ -273,7 +301,8 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 			log.Printf("%s save transcript failed: %v", logPrefix, err)
 			return
 		}
-		if err := m.saveTranscriptSegments(podcastID, output, storedChunks); err != nil {
+		savedSegments, err := m.saveTranscriptSegments(podcastID, output, storedChunks)
+		if err != nil {
 			m.failJob(jobID, ch, start, fmt.Sprintf("save transcript segments failed: %v", err))
 			log.Printf("%s save transcript segments failed: %v", logPrefix, err)
 			return
@@ -288,6 +317,11 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 		if err := m.paras.SaveSummaries(podcastID, summaryModels); err != nil {
 			m.failJob(jobID, ch, start, fmt.Sprintf("save summaries failed: %v", err))
 			log.Printf("%s save summaries failed: %v", logPrefix, err)
+			return
+		}
+		if err := m.saveSummarySegments(jobCtx, podcastID, savedSegments); err != nil {
+			m.failJob(jobID, ch, start, fmt.Sprintf("save summary mappings failed: %v", err))
+			log.Printf("%s save summary mappings failed: %v", logPrefix, err)
 			return
 		}
 
@@ -392,16 +426,16 @@ func (m *Manager) storeAudioArtifacts(ctx context.Context, podcastID, jobID, ori
 	return savedChunks, nil
 }
 
-func (m *Manager) saveTranscriptSegments(podcastID string, output TranscriptOutput, chunks []domain.AudioChunk) error {
+func (m *Manager) saveTranscriptSegments(podcastID string, output TranscriptOutput, chunks []domain.AudioChunk) ([]domain.TranscriptSegment, error) {
 	if m.transcriptSegments == nil {
-		return nil
+		return nil, nil
 	}
 	segments := output.Segments
 	if len(segments) == 0 {
 		segments = transcriptSegmentsFromParagraphs(output.Paragraphs)
 	}
 	if len(segments) == 0 {
-		return nil
+		return nil, nil
 	}
 	chunksByOrder := map[int]string{}
 	for _, chunk := range chunks {
@@ -417,10 +451,69 @@ func (m *Manager) saveTranscriptSegments(podcastID string, output TranscriptOutp
 			}
 		}
 	}
-	if _, err := m.transcriptSegments.SaveTranscriptSegments(podcastID, segments); err != nil {
+	savedSegments, err := m.transcriptSegments.SaveTranscriptSegments(podcastID, segments)
+	if err != nil {
+		return nil, err
+	}
+	return savedSegments, nil
+}
+
+func (m *Manager) saveSummarySegments(ctx context.Context, podcastID string, transcripts []domain.TranscriptSegment) error {
+	if m.transcriptSummary == nil || m.summarySegments == nil || len(transcripts) == 0 {
+		return nil
+	}
+	result, err := m.transcriptSummary.SummarizeSegments(ctx, transcripts)
+	if err != nil {
 		return err
 	}
-	return nil
+	if len(result.Segments) == 0 {
+		return fmt.Errorf("summary service returned no segments")
+	}
+
+	provider := nonEmptyStringPtr(result.Provider)
+	model := nonEmptyStringPtr(result.Model)
+	summaries := make([]domain.SummarySegment, 0, len(result.Segments))
+	sourceIDsByOrder := make([][]string, 0, len(result.Segments))
+	for idx, segment := range result.Segments {
+		text := strings.TrimSpace(segment.Text)
+		if text == "" {
+			return fmt.Errorf("summary segment %d is empty", idx+1)
+		}
+		sourceIDs := compactStrings(segment.SourceTranscriptSegmentIDs)
+		if len(sourceIDs) == 0 {
+			return fmt.Errorf("summary segment %d has no source transcript segments", idx+1)
+		}
+		orderIndex := segment.OrderIndex
+		if orderIndex <= 0 {
+			orderIndex = idx + 1
+		}
+		summaries = append(summaries, domain.SummarySegment{
+			OrderIndex: orderIndex,
+			Text:       text,
+			Provider:   provider,
+			Model:      model,
+		})
+		sourceIDsByOrder = append(sourceIDsByOrder, sourceIDs)
+	}
+
+	savedSummaries, err := m.summarySegments.SaveSummarySegments(podcastID, summaries)
+	if err != nil {
+		return err
+	}
+	if len(savedSummaries) != len(sourceIDsByOrder) {
+		return fmt.Errorf("saved %d summary segments for %d mapping groups", len(savedSummaries), len(sourceIDsByOrder))
+	}
+	mappings := make([]domain.TranscriptSummaryMapping, 0)
+	for idx, summary := range savedSummaries {
+		for sourceOrder, transcriptID := range sourceIDsByOrder[idx] {
+			mappings = append(mappings, domain.TranscriptSummaryMapping{
+				SummarySegmentID:    summary.ID,
+				TranscriptSegmentID: transcriptID,
+				SourceOrder:         sourceOrder + 1,
+			})
+		}
+	}
+	return m.summarySegments.SaveTranscriptSummaryMappings(podcastID, mappings)
 }
 
 func buildAudioChunkRecords(jobID string, paths []string) ([]domain.AudioChunk, error) {
@@ -622,6 +715,17 @@ func nonEmptyStringPtr(value string) *string {
 	return &value
 }
 
+func compactStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
 // SummaryService implementation backed by SummaryClient.
 type ClientSummaryService struct {
 	client SummaryClient
@@ -669,6 +773,93 @@ func (s *ClientSummaryService) Summarize(paragraphs []domain.Paragraph) ([]domai
 	}
 
 	return summaries, nil
+}
+
+func (s *ClientSummaryService) SummarizeSegments(ctx context.Context, segments []domain.TranscriptSegment) (domain.SummaryResult, error) {
+	if s.client == nil {
+		return domain.SummaryResult{}, fmt.Errorf("no summary client configured")
+	}
+	if len(segments) == 0 {
+		return domain.SummaryResult{}, fmt.Errorf("no transcript segments to summarize")
+	}
+	if client, ok := s.client.(TranscriptSegmentSummaryClient); ok {
+		return client.SummarizeTranscriptSegments(ctx, segments)
+	}
+
+	groups := groupTranscriptSegments(segments, 2)
+	texts := make([]string, 0, len(groups))
+	for _, group := range groups {
+		parts := make([]string, 0, len(group))
+		for _, segment := range group {
+			if text := strings.TrimSpace(segment.Text); text != "" {
+				parts = append(parts, text)
+			}
+		}
+		texts = append(texts, strings.Join(parts, "\n\n"))
+	}
+
+	resp, err := s.client.Summarize(texts)
+	if err != nil {
+		return domain.SummaryResult{}, err
+	}
+	if len(resp) == 0 {
+		return domain.SummaryResult{}, fmt.Errorf("summary client returned 0 summaries")
+	}
+
+	result := domain.SummaryResult{Segments: make([]domain.SummaryResultSegment, 0, len(groups))}
+	for idx, group := range groups {
+		text := ""
+		if idx < len(resp) {
+			text = strings.TrimSpace(resp[idx])
+		}
+		if text == "" {
+			text = fallbackGroupSummary(group)
+		}
+		sourceIDs := make([]string, 0, len(group))
+		for _, transcript := range group {
+			if transcript.ID != "" {
+				sourceIDs = append(sourceIDs, transcript.ID)
+			}
+		}
+		if len(sourceIDs) == 0 {
+			return domain.SummaryResult{}, fmt.Errorf("summary group %d has no source transcript ids", idx+1)
+		}
+		result.Segments = append(result.Segments, domain.SummaryResultSegment{
+			OrderIndex:                 idx + 1,
+			Text:                       text,
+			SourceTranscriptSegmentIDs: sourceIDs,
+		})
+	}
+	return result, nil
+}
+
+func groupTranscriptSegments(segments []domain.TranscriptSegment, groupSize int) [][]domain.TranscriptSegment {
+	if groupSize <= 0 {
+		groupSize = 1
+	}
+	groups := make([][]domain.TranscriptSegment, 0, (len(segments)+groupSize-1)/groupSize)
+	for start := 0; start < len(segments); start += groupSize {
+		end := start + groupSize
+		if end > len(segments) {
+			end = len(segments)
+		}
+		groups = append(groups, segments[start:end])
+	}
+	return groups
+}
+
+func fallbackGroupSummary(group []domain.TranscriptSegment) string {
+	parts := make([]string, 0, len(group))
+	for _, segment := range group {
+		if text := strings.TrimSpace(segment.Text); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	text := strings.Join(parts, " ")
+	if len(text) > 600 {
+		text = text[:600] + "..."
+	}
+	return text
 }
 
 // StoragePublisher implementation backed by ObjectUploader.

@@ -123,9 +123,9 @@
         "Each summary segment records which transcript segment IDs or paragraph groups it summarizes.",
         "Tests verify grouping and mapping behavior with deterministic fixtures and no live OpenAI call."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P1",
       "depends_on": [

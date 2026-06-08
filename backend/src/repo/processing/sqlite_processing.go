@@ -156,6 +156,11 @@ func (r *ProcessingSQLiteRepo) SaveSummarySegments(episodeID string, segments []
 	}
 	defer rollback(tx)
 
+	if len(segments) > 0 {
+		if _, err := tx.ExecContext(context.Background(), `DELETE FROM summary_segment WHERE episode_id = ?`, episodeID); err != nil {
+			return nil, fmt.Errorf("sqlite replace summary segments: %w", err)
+		}
+	}
 	saved, err := saveSummarySegmentsTx(tx, episodeID, segments)
 	if err != nil {
 		return nil, err

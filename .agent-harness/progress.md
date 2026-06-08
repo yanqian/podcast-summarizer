@@ -16,6 +16,8 @@ F005 has been implemented and evaluator-accepted. The implementation stores down
 
 F006 has been implemented and evaluator-accepted. The implementation adds a testable OpenAI audio transcription adapter, selects OpenAI by configuration when `OPENAI_API_KEY` is set, preserves no-live-key fixture tests, fails jobs on transcription errors, and persists generated transcript segments with provider/model metadata and local audio chunk association.
 
+F007 has been implemented and evaluator-accepted. The implementation adds grouped transcript-segment summarization through the OpenAI summarizer adapter, deterministic no-live grouping through the configured summary client, persistence of grouped `summary_segment` rows, and source mappings in `transcript_summary_mapping`.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -28,11 +30,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F006 Add OpenAI transcription adapter.
+F007 Add OpenAI summarization and transcript mapping.
 
 ## Next Feature
 
-F007 Add OpenAI summarization and transcript mapping.
+F008 Orchestrate podcast processing pipeline.
 
 ## Known Issues
 

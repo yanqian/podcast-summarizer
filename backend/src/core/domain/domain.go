@@ -151,6 +151,18 @@ type SummarySegment struct {
 	CreatedAt  time.Time
 }
 
+type SummaryResult struct {
+	Segments []SummaryResultSegment
+	Provider string
+	Model    string
+}
+
+type SummaryResultSegment struct {
+	OrderIndex                 int
+	Text                       string
+	SourceTranscriptSegmentIDs []string
+}
+
 type TranscriptSummaryMapping struct {
 	ID                  string
 	EpisodeID           string

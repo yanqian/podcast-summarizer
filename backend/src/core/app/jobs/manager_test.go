@@ -125,6 +125,68 @@ func TestManagerStoresLocalAudioArtifactsAndPersistsChunkMetadata(t *testing.T) 
 	}
 }
 
+func TestManagerPersistsGroupedSummarySegmentsAndMappings(t *testing.T) {
+	ctx := context.Background()
+	db, err := dbinfra.NewSQLite(ctx, filepath.Join(t.TempDir(), "podcast.db"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	podcastID := createEpisode(t, db)
+	jobRepo := jobrepo.NewJobSQLiteRepo(db)
+	paragraphRepo := paragraphrepo.NewParagraphSQLiteRepo(db)
+	processingRepo := processingrepo.NewProcessingSQLiteRepo(db)
+	fixturesDir := t.TempDir()
+	provider := jobs.NewPipelineTranscriptProvider(
+		nil,
+		&fixtureDownloader{dir: fixturesDir},
+		&fixtureChunker{dir: fixturesDir},
+		&fixtureTranscriber{},
+	)
+	manager := jobs.NewManagerWithArtifacts(
+		jobRepo,
+		&allowLocker{},
+		paragraphRepo,
+		nil,
+		provider,
+		jobs.NewClientSummaryService(&groupingSummaryClient{}),
+		jobs.NewObjectStoragePublisher(storageinfra.NewLocalUploader(filepath.Join(t.TempDir(), "storage"))),
+		processingRepo,
+	)
+
+	jobID, err := manager.StartJob(ctx, podcastID, "http://audio.test/episode.mp3", nil)
+	if err != nil {
+		t.Fatalf("start job: %v", err)
+	}
+	job := waitForJobStatus(t, jobRepo, jobID, "succeeded")
+	if job.Error != nil {
+		t.Fatalf("job unexpectedly failed: %s", *job.Error)
+	}
+
+	mappings, err := processingRepo.GetSummarySourceMappings(podcastID)
+	if err != nil {
+		t.Fatalf("get summary source mappings: %v", err)
+	}
+	if len(mappings) != 1 {
+		t.Fatalf("expected 1 grouped summary mapping, got %+v", mappings)
+	}
+	if mappings[0].Summary.OrderIndex != 1 || !strings.HasPrefix(mappings[0].Summary.Text, "group summary:") {
+		t.Fatalf("unexpected summary segment: %+v", mappings[0].Summary)
+	}
+	if len(mappings[0].TranscriptSegments) != 2 {
+		t.Fatalf("expected summary to map both transcript segments, got %+v", mappings[0].TranscriptSegments)
+	}
+	if mappings[0].TranscriptSegments[0].OrderIndex != 1 || mappings[0].TranscriptSegments[1].OrderIndex != 2 {
+		t.Fatalf("transcript mapping order not preserved: %+v", mappings[0].TranscriptSegments)
+	}
+	if !strings.Contains(mappings[0].TranscriptSegments[0].Text, "chunk-a.mp3") || !strings.Contains(mappings[0].TranscriptSegments[1].Text, "chunk-b.mp3") {
+		t.Fatalf("unexpected mapped transcript text: %+v", mappings[0].TranscriptSegments)
+	}
+}
+
 func TestManagerMarksJobFailedWhenChunkingFails(t *testing.T) {
 	ctx := context.Background()
 	db, err := dbinfra.NewSQLite(ctx, filepath.Join(t.TempDir(), "podcast.db"))
@@ -326,6 +388,16 @@ func (s *mirrorSummary) Summarize(paragraphs []domain.Paragraph) ([]domain.Summa
 	summaries := make([]domain.Summary, len(paragraphs))
 	for idx, paragraph := range paragraphs {
 		summaries[idx] = domain.Summary{OrderIndex: paragraph.OrderIndex, Text: "summary " + paragraph.Text}
+	}
+	return summaries, nil
+}
+
+type groupingSummaryClient struct{}
+
+func (c *groupingSummaryClient) Summarize(paragraphs []string) ([]string, error) {
+	summaries := make([]string, len(paragraphs))
+	for idx, paragraph := range paragraphs {
+		summaries[idx] = "group summary: " + paragraph
 	}
 	return summaries, nil
 }
