@@ -184,9 +184,9 @@
         "The page displays processing stage, completion, and failure states clearly.",
         "Frontend tests or interaction checks cover submit, duplicate, loading, success, and error states."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P1",
       "depends_on": [

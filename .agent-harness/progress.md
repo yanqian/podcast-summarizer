@@ -22,6 +22,8 @@ F008 has been implemented and evaluator-accepted. The implementation persists pi
 
 F009 has been implemented and evaluator-accepted. The implementation exposes local backend API detail/status reads for episodes, preserves the existing ingest/list/job endpoints, returns transcript-summary segment mappings for the viewer, includes latest job status and error metadata in episode responses, and adds HTTP contract tests for success, duplicate submission, not found, and failed processing responses.
 
+F010 has been implemented and evaluator-accepted. The implementation adds a frontend admin submission/status page wired to ingest and episode status APIs, distinguishes duplicate existing episodes from new processing jobs, displays queued/completed/failed states and processing errors, refreshes selected episode status, and adds frontend interaction tests for submit, duplicate, loading, success, and error states.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -34,11 +36,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F009 Expose local backend API.
+F010 Build admin podcast submission UI.
 
 ## Next Feature
 
-F010 Build admin podcast submission UI.
+F011 Build transcript and summary viewer.
 
 ## Known Issues
 
@@ -46,3 +48,4 @@ F010 Build admin podcast submission UI.
 - F005 now documents `ffmpeg` as the local chunking tool; routine tests use fixtures and do not require a large podcast file.
 - The Codex provider adapter produced completed coding work and an evaluator pass, but the orchestrator still recorded a non-zero coding-provider failure. Future unattended rounds may need provider adapter hardening if this repeats.
 - Manual F006 coding encountered a sandbox listener limitation when using `httptest`; adapter verification now uses a fake `http.RoundTripper` fixture, so no socket binding or live OpenAI call is required.
+- Manual F010 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`) and the in-app Browser surface was unavailable (`iab` not available). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, and Vite production build; browser visual inspection remains an environment limitation for this run.

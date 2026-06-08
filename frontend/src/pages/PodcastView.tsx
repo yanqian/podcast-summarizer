@@ -114,6 +114,10 @@ export const PodcastView = ({ selectedPodcastId, onIngested }: Props) => {
     try {
       const job = await ingestPodcast(url);
       setPodcastId(job.podcastId);
+      if (!job.jobId) {
+        loadExisting(job.podcastId);
+        return;
+      }
       onIngested?.(job.podcastId, job.jobId);
       setStatus('streaming');
       subscribeTranscript(job.jobId, handleStreamEvent, (err) => {
