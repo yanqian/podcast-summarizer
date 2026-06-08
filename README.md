@@ -78,6 +78,7 @@ It verifies the harness, backend tests, frontend tests/build, and a deterministi
 
 Local data is created under `backend/data/` and ignored by git.
 Generated media files, such as downloaded audio and ffmpeg chunks, are stored under `backend/data/storage/` in local mode and are also ignored by git.
+SQLite records episode metadata, processing jobs, audio chunks, transcript segments, summary segments, and transcript-to-summary mappings in `backend/data/podcast.db` unless `SQLITE_PATH` points elsewhere.
 
 ## Backend (Go)
 1) Copy `backend/.env.example` to `backend/.env` and fill any optional values (never commit secrets).

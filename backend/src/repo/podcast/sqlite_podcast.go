@@ -18,7 +18,44 @@ func NewPodcastSQLiteRepo(db *sql.DB) *PodcastSQLiteRepo {
 }
 
 func (r *PodcastSQLiteRepo) UpsertSource(url, title, description string, durationSeconds *int, audioURL *string, transcriptURL *string) (string, error) {
-	const q = `
+	tx, err := r.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return "", fmt.Errorf("sqlite begin upsert source: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	id := sqliteutil.NewID()
+	existingID, err := selectSourceID(tx, url)
+	if err != nil {
+		return "", fmt.Errorf("sqlite select existing source: %w", err)
+	}
+	if existingID != "" {
+		id = existingID
+	}
+
+	hasTranscript := 0
+	if transcriptURL != nil && *transcriptURL != "" {
+		hasTranscript = 1
+	}
+
+	const episodeQ = `
+INSERT INTO episode (id, podcast_url, title, description, duration_seconds, audio_url, transcript_url, has_transcript, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(podcast_url) DO UPDATE SET
+	title = excluded.title,
+	description = excluded.description,
+	duration_seconds = excluded.duration_seconds,
+	audio_url = excluded.audio_url,
+	transcript_url = excluded.transcript_url,
+	has_transcript = excluded.has_transcript,
+	updated_at = CURRENT_TIMESTAMP;`
+	if _, err := tx.ExecContext(context.Background(), episodeQ, id, url, title, description, durationSeconds, sqliteutil.NullableString(audioURL), sqliteutil.NullableString(transcriptURL), hasTranscript); err != nil {
+		return "", fmt.Errorf("sqlite upsert episode: %w", err)
+	}
+
+	const sourceQ = `
 INSERT INTO podcast_source (id, url, title, description, duration_seconds, audio_url, transcript_url, has_transcript, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT(url) DO UPDATE SET
@@ -29,26 +66,70 @@ ON CONFLICT(url) DO UPDATE SET
 	transcript_url = excluded.transcript_url,
 	has_transcript = excluded.has_transcript,
 	updated_at = CURRENT_TIMESTAMP;`
-
-	id := sqliteutil.NewID()
-	hasTranscript := 0
-	if transcriptURL != nil && *transcriptURL != "" {
-		hasTranscript = 1
-	}
-	if _, err := r.db.ExecContext(context.Background(), q, id, url, title, description, durationSeconds, sqliteutil.NullableString(audioURL), sqliteutil.NullableString(transcriptURL), hasTranscript); err != nil {
+	if _, err := tx.ExecContext(context.Background(), sourceQ, id, url, title, description, durationSeconds, sqliteutil.NullableString(audioURL), sqliteutil.NullableString(transcriptURL), hasTranscript); err != nil {
 		return "", fmt.Errorf("sqlite upsert source: %w", err)
 	}
 
-	var existingID string
-	if err := r.db.QueryRowContext(context.Background(), `SELECT id FROM podcast_source WHERE url = ?`, url).Scan(&existingID); err != nil {
+	var sourceID string
+	if err := tx.QueryRowContext(context.Background(), `SELECT id FROM episode WHERE podcast_url = ?`, url).Scan(&sourceID); err != nil {
 		return "", fmt.Errorf("sqlite fetch source id: %w", err)
 	}
-	return existingID, nil
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("sqlite commit source: %w", err)
+	}
+	return sourceID, nil
 }
 
 func (r *PodcastSQLiteRepo) MarkHasTranscript(id string) error {
-	_, err := r.db.ExecContext(context.Background(), `UPDATE podcast_source SET has_transcript = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
-	return err
+	tx, err := r.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return fmt.Errorf("sqlite begin mark transcript: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	if _, err := tx.ExecContext(context.Background(), `UPDATE episode SET has_transcript = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(context.Background(), `UPDATE podcast_source SET has_transcript = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *PodcastSQLiteRepo) GetSourceByURL(url string) (domain.PodcastSource, error) {
+	const q = `
+SELECT id, podcast_url, COALESCE(title, ''), has_transcript, created_at
+FROM episode
+WHERE podcast_url = ?;`
+	var item domain.PodcastSource
+	var hasTranscript int
+	var createdAt string
+	if err := r.db.QueryRowContext(context.Background(), q, url).Scan(&item.ID, &item.URL, &item.Title, &hasTranscript, &createdAt); err != nil {
+		return domain.PodcastSource{}, fmt.Errorf("sqlite get source by url: %w", err)
+	}
+	item.HasTranscript = hasTranscript == 1
+	item.CreatedAt = sqliteutil.ParseTime(createdAt)
+	return item, nil
+}
+
+func selectSourceID(tx *sql.Tx, url string) (string, error) {
+	var id string
+	err := tx.QueryRowContext(context.Background(), `SELECT id FROM episode WHERE podcast_url = ?`, url).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if err != sql.ErrNoRows {
+		return "", err
+	}
+	err = tx.QueryRowContext(context.Background(), `SELECT id FROM podcast_source WHERE url = ?`, url).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return "", err
 }
 
 func (r *PodcastSQLiteRepo) ListSources(limit int) ([]domain.PodcastSource, error) {
@@ -56,11 +137,11 @@ func (r *PodcastSQLiteRepo) ListSources(limit int) ([]domain.PodcastSource, erro
 		limit = 50
 	}
 	const q = `
-SELECT ps.id, ps.url, COALESCE(ps.title, ''), ps.has_transcript, ps.created_at,
-	(SELECT pj.id FROM processing_job pj WHERE pj.podcast_id = ps.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_job_id,
-	(SELECT pj.status FROM processing_job pj WHERE pj.podcast_id = ps.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_status
-FROM podcast_source ps
-ORDER BY ps.created_at DESC
+SELECT e.id, e.podcast_url, COALESCE(e.title, ''), e.has_transcript, e.created_at,
+	(SELECT pj.id FROM processing_job pj WHERE pj.podcast_id = e.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_job_id,
+	(SELECT pj.status FROM processing_job pj WHERE pj.podcast_id = e.id ORDER BY pj.created_at DESC LIMIT 1) AS latest_status
+FROM episode e
+ORDER BY e.created_at DESC
 LIMIT ?;`
 
 	rows, err := r.db.QueryContext(context.Background(), q, limit)

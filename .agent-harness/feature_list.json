@@ -45,9 +45,9 @@
         "Persistence tests cover normal writes, status transitions, lookup by podcast URL, and transcript-summary mapping retrieval.",
         "Local data paths are documented and ignored from git where appropriate."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [

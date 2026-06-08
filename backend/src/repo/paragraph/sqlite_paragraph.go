@@ -28,9 +28,20 @@ func (r *ParagraphSQLiteRepo) SaveTranscript(podcastID string, paragraphs []doma
 INSERT INTO transcript_paragraph (id, podcast_id, order_index, text, source)
 VALUES (?, ?, ?, ?, 'generated')
 ON CONFLICT(podcast_id, order_index) DO UPDATE SET text = excluded.text;`
+	const segmentQ = `
+INSERT INTO transcript_segment (id, episode_id, order_index, text)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(episode_id, order_index) DO UPDATE SET text = excluded.text;`
 	for _, p := range paragraphs {
 		if _, err := tx.ExecContext(context.Background(), q, sqliteutil.NewID(), podcastID, p.OrderIndex, p.Text); err != nil {
 			return fmt.Errorf("sqlite save transcript: %w", err)
+		}
+		segmentID := existingSegmentID(tx, "transcript_segment", podcastID, p.OrderIndex)
+		if segmentID == "" {
+			segmentID = sqliteutil.NewID()
+		}
+		if _, err := tx.ExecContext(context.Background(), segmentQ, segmentID, podcastID, p.OrderIndex, p.Text); err != nil {
+			return fmt.Errorf("sqlite save transcript segment: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -52,9 +63,34 @@ SELECT ?, tp.id, ?
 FROM transcript_paragraph tp
 WHERE tp.podcast_id = ? AND tp.order_index = ?
 ON CONFLICT(transcript_paragraph_id) DO UPDATE SET summary_text = excluded.summary_text;`
+	const summaryQ = `
+INSERT INTO summary_segment (id, episode_id, order_index, text)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(episode_id, order_index) DO UPDATE SET text = excluded.text;`
+	const mappingQ = `
+INSERT INTO transcript_summary_mapping (id, episode_id, summary_segment_id, transcript_segment_id, source_order)
+VALUES (?, ?, ?, ?, 1)
+ON CONFLICT(summary_segment_id, transcript_segment_id) DO UPDATE SET source_order = excluded.source_order;`
 	for _, summary := range summaries {
 		if _, err := tx.ExecContext(context.Background(), q, sqliteutil.NewID(), summary.Text, podcastID, summary.OrderIndex); err != nil {
 			return fmt.Errorf("sqlite save summaries: %w", err)
+		}
+		summaryID := existingSegmentID(tx, "summary_segment", podcastID, summary.OrderIndex)
+		if summaryID == "" {
+			summaryID = sqliteutil.NewID()
+		}
+		if _, err := tx.ExecContext(context.Background(), summaryQ, summaryID, podcastID, summary.OrderIndex, summary.Text); err != nil {
+			return fmt.Errorf("sqlite save summary segment: %w", err)
+		}
+		transcriptID := existingSegmentID(tx, "transcript_segment", podcastID, summary.OrderIndex)
+		if transcriptID != "" {
+			mappingID := existingMappingID(tx, summaryID, transcriptID)
+			if mappingID == "" {
+				mappingID = sqliteutil.NewID()
+			}
+			if _, err := tx.ExecContext(context.Background(), mappingQ, mappingID, podcastID, summaryID, transcriptID); err != nil {
+				return fmt.Errorf("sqlite save summary mapping: %w", err)
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -92,6 +128,27 @@ ORDER BY tp.order_index;`
 
 func rollback(tx *sql.Tx) {
 	_ = tx.Rollback()
+}
+
+func existingSegmentID(tx *sql.Tx, table, podcastID string, orderIndex int) string {
+	var id string
+	q := fmt.Sprintf("SELECT id FROM %s WHERE episode_id = ? AND order_index = ?", table)
+	if err := tx.QueryRowContext(context.Background(), q, podcastID, orderIndex).Scan(&id); err == nil {
+		return id
+	}
+	return ""
+}
+
+func existingMappingID(tx *sql.Tx, summaryID, transcriptID string) string {
+	var id string
+	const q = `
+SELECT id
+FROM transcript_summary_mapping
+WHERE summary_segment_id = ? AND transcript_segment_id = ?;`
+	if err := tx.QueryRowContext(context.Background(), q, summaryID, transcriptID).Scan(&id); err == nil {
+		return id
+	}
+	return ""
 }
 
 var _ domain.ParagraphRepository = (*ParagraphSQLiteRepo)(nil)

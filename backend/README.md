@@ -16,6 +16,7 @@ Local runtime:
 - The server uses SQLite only.
 - The database file is created automatically at `data/podcast.db` unless `SQLITE_PATH` is set.
 - Generated audio/chunk artifacts are copied to local file storage at `data/storage` unless `LOCAL_STORAGE_PATH` is set.
+- SQLite stores episode metadata, processing jobs, audio chunk records, transcript segments, summary segments, and transcript-to-summary mappings. The database and generated files live under `data/` by default and are ignored by git.
 
 Current behavior:
 - Ingest extracts track ID, fetches metadata via iTunes lookup, enqueues job.

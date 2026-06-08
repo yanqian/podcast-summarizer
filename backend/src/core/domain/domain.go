@@ -27,6 +27,7 @@ type SummaryClient interface {
 
 type PodcastRepository interface {
 	UpsertSource(url, title, description string, durationSeconds *int, audioURL *string, transcriptURL *string) (string, error)
+	GetSourceByURL(url string) (PodcastSource, error)
 	MarkHasTranscript(id string) error
 	ListSources(limit int) ([]PodcastSource, error)
 }
@@ -84,4 +85,68 @@ type ProcessingJob struct {
 	Status     string
 	DurationMs *int
 	Error      *string
+}
+
+type Episode struct {
+	ID              string
+	PodcastURL      string
+	Title           string
+	Description     string
+	DurationSeconds *int
+	AudioURL        *string
+	TranscriptURL   *string
+	HasTranscript   bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type AudioChunk struct {
+	ID              string
+	EpisodeID       string
+	ProcessingJobID *string
+	OrderIndex      int
+	FilePath        string
+	StartSeconds    *float64
+	EndSeconds      *float64
+	DurationSeconds *float64
+	ByteSize        *int64
+	Checksum        *string
+	CreatedAt       time.Time
+}
+
+type TranscriptSegment struct {
+	ID           string
+	EpisodeID    string
+	AudioChunkID *string
+	OrderIndex   int
+	StartSeconds *float64
+	EndSeconds   *float64
+	Text         string
+	Provider     *string
+	Model        *string
+	CreatedAt    time.Time
+}
+
+type SummarySegment struct {
+	ID         string
+	EpisodeID  string
+	OrderIndex int
+	Text       string
+	Provider   *string
+	Model      *string
+	CreatedAt  time.Time
+}
+
+type TranscriptSummaryMapping struct {
+	ID                  string
+	EpisodeID           string
+	SummarySegmentID    string
+	TranscriptSegmentID string
+	SourceOrder         int
+	CreatedAt           time.Time
+}
+
+type SummarySourceMapping struct {
+	Summary            SummarySegment
+	TranscriptSegments []TranscriptSegment
 }

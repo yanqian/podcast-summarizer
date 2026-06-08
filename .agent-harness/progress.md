@@ -8,6 +8,8 @@ F001 has been implemented and evaluator-accepted. Root `./init.sh` now runs harn
 
 F002 has been implemented and evaluator-accepted. The implementation removes selectable Postgres, Valkey/Redis, R2, cloud-mode, and non-SQLite runtime paths from project-owned backend code and docs, keeps SQLite/local filesystem as the only runtime path, and adds a backend static test that prevents reintroducing required non-SQLite storage dependencies or env knobs in the default runtime.
 
+F003 has been implemented and evaluator-accepted. The implementation adds SQLite persistence for episodes, processing jobs, audio chunks, transcript segments, summary segments, and transcript-to-summary mappings, with backend integration tests covering URL lookup, normal artifact writes, status transitions, and mapping retrieval.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -20,11 +22,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F002 Remove cloud and non-SQLite runtime paths.
+F003 Implement SQLite podcast processing model.
 
 ## Next Feature
 
-F003 Implement SQLite podcast processing model.
+F004 Add podcast URL ingestion and idempotency.
 
 ## Known Issues
 
