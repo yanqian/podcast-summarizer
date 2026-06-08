@@ -3,6 +3,7 @@ package jobrepo
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"podcast-summarizer/src/core/app/jobs"
@@ -43,14 +44,38 @@ WHERE id = ?;`
 
 func (r *JobSQLiteRepo) Get(id string) (domain.ProcessingJob, error) {
 	const q = `
-SELECT id, podcast_id, type, status, duration_ms, error_message
+SELECT id, podcast_id, type, status, started_at, completed_at, duration_ms, error_message
 FROM processing_job
 WHERE id = ?;`
+	return r.scanJob(q, id)
+}
+
+func (r *JobSQLiteRepo) GetLatestByPodcastID(podcastID string) (domain.ProcessingJob, error) {
+	const q = `
+SELECT id, podcast_id, type, status, started_at, completed_at, duration_ms, error_message
+FROM processing_job
+WHERE podcast_id = ?
+ORDER BY created_at DESC
+LIMIT 1;`
+	return r.scanJob(q, podcastID)
+}
+
+func (r *JobSQLiteRepo) scanJob(query string, arg string) (domain.ProcessingJob, error) {
 	var job domain.ProcessingJob
+	var startedAt string
+	var completedAt sql.NullString
 	var duration sql.NullInt64
 	var errMsg sql.NullString
-	if err := r.db.QueryRowContext(context.Background(), q, id).Scan(&job.ID, &job.PodcastID, &job.Type, &job.Status, &duration, &errMsg); err != nil {
+	if err := r.db.QueryRowContext(context.Background(), query, arg).Scan(&job.ID, &job.PodcastID, &job.Type, &job.Status, &startedAt, &completedAt, &duration, &errMsg); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ProcessingJob{}, sql.ErrNoRows
+		}
 		return domain.ProcessingJob{}, fmt.Errorf("sqlite get job: %w", err)
+	}
+	job.StartedAt = sqliteutil.ParseTime(startedAt)
+	if completedAt.Valid {
+		v := sqliteutil.ParseTime(completedAt.String)
+		job.CompletedAt = &v
 	}
 	if duration.Valid {
 		v := int(duration.Int64)

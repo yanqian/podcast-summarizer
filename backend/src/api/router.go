@@ -72,20 +72,19 @@ func corsMiddleware(next http.Handler) http.Handler {
 // NewRouter returns a mux with dependencies.
 func NewRouter(deps Dependencies) http.Handler {
 	itunes := podcast.NewItunesClient()
-	var podcastRepo domain.PodcastRepository
 	var paragraphRepo domain.ParagraphRepository
 	var jobRepo jobs.JobRepository
 	var lock jobs.Locker
-	var processingRepo jobs.AudioChunkRepository
 
 	if deps.SQLite == nil {
 		panic("api.NewRouter requires SQLite dependencies")
 	}
-	podcastRepo = podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
+	podcastRepo := podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
 	paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
-	jobRepo = jobrepo.NewJobSQLiteRepo(deps.SQLite)
+	jobSQLiteRepo := jobrepo.NewJobSQLiteRepo(deps.SQLite)
+	jobRepo = jobSQLiteRepo
 	lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
-	processingRepo = processingrepo.NewProcessingSQLiteRepo(deps.SQLite)
+	processingRepo := processingrepo.NewProcessingSQLiteRepo(deps.SQLite)
 
 	transcriptFetcher := transcript.NewFetcher()
 	var transcriberClient jobs.TranscriptionFileClient = transcription.NewTranscriber()
@@ -135,12 +134,20 @@ func NewRouter(deps Dependencies) http.Handler {
 			handlers.ResummarizeHandler(paragraphRepo, summarySvc)(w, r)
 			return
 		}
+		if strings.HasSuffix(r.URL.Path, "/status") {
+			handlers.EpisodeStatusHandler(podcastRepo, jobSQLiteRepo)(w, r)
+			return
+		}
 		if strings.HasSuffix(r.URL.Path, "/view") {
-			handlers.ViewHandler(paragraphRepo)(w, r)
+			handlers.EpisodeDetailHandler(podcastRepo, jobSQLiteRepo, processingRepo)(w, r)
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/export") {
 			handlers.ExportHandler(paragraphRepo)(w, r)
+			return
+		}
+		if len(strings.Split(strings.Trim(r.URL.Path, "/"), "/")) == 3 {
+			handlers.EpisodeDetailHandler(podcastRepo, jobSQLiteRepo, processingRepo)(w, r)
 			return
 		}
 		http.NotFound(w, r)

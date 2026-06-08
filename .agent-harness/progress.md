@@ -20,6 +20,8 @@ F007 has been implemented and evaluator-accepted. The implementation adds groupe
 
 F008 has been implemented and evaluator-accepted. The implementation persists pipeline progress through download, chunking, transcription, summarization, and completion job statuses; fails summarization errors instead of fabricating fallback summaries; and adds a deterministic SQLite-backed backend integration test for fixture-driven end-to-end processing plus idempotent artifact rewrites.
 
+F009 has been implemented and evaluator-accepted. The implementation exposes local backend API detail/status reads for episodes, preserves the existing ingest/list/job endpoints, returns transcript-summary segment mappings for the viewer, includes latest job status and error metadata in episode responses, and adds HTTP contract tests for success, duplicate submission, not found, and failed processing responses.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -32,11 +34,11 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F008 Orchestrate podcast processing pipeline.
+F009 Expose local backend API.
 
 ## Next Feature
 
-F009 Expose local backend API.
+F010 Build admin podcast submission UI.
 
 ## Known Issues
 

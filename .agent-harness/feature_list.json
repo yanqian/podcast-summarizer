@@ -165,9 +165,9 @@
         "API responses include enough structured data for the frontend to render admin status and episode viewer mapping.",
         "HTTP handler tests cover success, duplicate submission, not found, and failed processing responses."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P0",
       "depends_on": [

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"podcast-summarizer/src/core/app/jobs"
+	"podcast-summarizer/src/internal/sqliteutil"
 )
 
 type jobStatusResponse struct {
@@ -44,6 +45,12 @@ func JobStatusHandler(repo jobs.JobRepository) http.HandlerFunc {
 			Status:       job.Status,
 			DurationMs:   job.DurationMs,
 			ErrorMessage: job.Error,
+		}
+		if !job.StartedAt.IsZero() {
+			resp.StartedAt = sqliteutil.FormatTime(job.StartedAt)
+		}
+		if job.CompletedAt != nil && !job.CompletedAt.IsZero() {
+			resp.CompletedAt = sqliteutil.FormatTime(*job.CompletedAt)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)

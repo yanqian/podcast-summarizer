@@ -3,6 +3,7 @@ package podcastrepo
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"podcast-summarizer/src/core/domain"
@@ -121,6 +122,52 @@ WHERE e.podcast_url = ?;`
 		item.LatestStatus = &latestStatus.String
 	}
 	return item, nil
+}
+
+func (r *PodcastSQLiteRepo) GetEpisode(id string) (domain.Episode, error) {
+	const q = `
+SELECT id, podcast_url, COALESCE(title, ''), COALESCE(description, ''), duration_seconds,
+	audio_url, transcript_url, has_transcript, created_at, updated_at
+FROM episode
+WHERE id = ?;`
+	var episode domain.Episode
+	var duration sql.NullInt64
+	var audioURL sql.NullString
+	var transcriptURL sql.NullString
+	var hasTranscript int
+	var createdAt string
+	var updatedAt string
+	if err := r.db.QueryRowContext(context.Background(), q, id).Scan(
+		&episode.ID,
+		&episode.PodcastURL,
+		&episode.Title,
+		&episode.Description,
+		&duration,
+		&audioURL,
+		&transcriptURL,
+		&hasTranscript,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.Episode{}, sql.ErrNoRows
+		}
+		return domain.Episode{}, fmt.Errorf("sqlite get episode: %w", err)
+	}
+	if duration.Valid {
+		v := int(duration.Int64)
+		episode.DurationSeconds = &v
+	}
+	if audioURL.Valid {
+		episode.AudioURL = &audioURL.String
+	}
+	if transcriptURL.Valid {
+		episode.TranscriptURL = &transcriptURL.String
+	}
+	episode.HasTranscript = hasTranscript == 1
+	episode.CreatedAt = sqliteutil.ParseTime(createdAt)
+	episode.UpdatedAt = sqliteutil.ParseTime(updatedAt)
+	return episode, nil
 }
 
 func selectSourceID(tx *sql.Tx, url string) (string, error) {

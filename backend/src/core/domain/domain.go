@@ -79,12 +79,14 @@ type PodcastSource struct {
 }
 
 type ProcessingJob struct {
-	ID         string
-	PodcastID  string
-	Type       string
-	Status     string
-	DurationMs *int
-	Error      *string
+	ID          string
+	PodcastID   string
+	Type        string
+	Status      string
+	StartedAt   time.Time
+	CompletedAt *time.Time
+	DurationMs  *int
+	Error       *string
 }
 
 type Episode struct {
