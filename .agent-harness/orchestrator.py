@@ -64,6 +64,17 @@ def normalize_status(feature: dict) -> str:
     return status
 
 
+def dependencies_satisfied(feature: dict, data: dict) -> bool:
+    for dependency_id in feature.get("depends_on", []):
+        try:
+            dependency = feature_by_id(data, str(dependency_id))
+        except OrchestratorError:
+            return False
+        if dependency.get("passes") is not True or normalize_status(dependency) != "done":
+            return False
+    return True
+
+
 def pick_feature(data: dict, max_attempts: int) -> Optional[dict]:
     priority = {"P0": 0, "P1": 1, "P2": 2}
     candidates = []
@@ -71,7 +82,12 @@ def pick_feature(data: dict, max_attempts: int) -> Optional[dict]:
     for feature in ordered_features:
         attempts = int(feature.get("attempts", 0))
         status = normalize_status(feature)
-        if feature.get("passes") is False and status in {"todo", "in_progress"} and attempts < max_attempts:
+        if (
+            feature.get("passes") is False
+            and status in {"todo", "in_progress"}
+            and attempts < max_attempts
+            and dependencies_satisfied(feature, data)
+        ):
             candidates.append(feature)
     candidates.sort(key=lambda item: (priority.get(item.get("priority", "P2"), 9), ordered_features.index(item)))
     return candidates[0] if candidates else None

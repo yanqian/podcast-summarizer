@@ -1,4 +1,5 @@
 import json
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -23,6 +24,52 @@ def write_executable(path, text):
 
 
 class ScriptUnitTests(unittest.TestCase):
+    def test_orchestrator_pick_feature_respects_dependencies_before_priority(self):
+        spec = importlib.util.spec_from_file_location("orchestrator", ROOT / "orchestrator.py")
+        orchestrator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(orchestrator)
+
+        data = {
+            "features": [
+                {
+                    "id": "F001",
+                    "title": "done dependency",
+                    "passes": True,
+                    "status": "done",
+                    "attempts": 1,
+                },
+                {
+                    "id": "F002",
+                    "title": "lower-priority unblocked work",
+                    "passes": False,
+                    "status": "todo",
+                    "attempts": 0,
+                    "priority": "P1",
+                    "depends_on": ["F001"],
+                },
+                {
+                    "id": "F003",
+                    "title": "higher-priority blocked work",
+                    "passes": False,
+                    "status": "todo",
+                    "attempts": 0,
+                    "priority": "P0",
+                    "depends_on": ["F004"],
+                },
+                {
+                    "id": "F004",
+                    "title": "unfinished dependency",
+                    "passes": False,
+                    "status": "todo",
+                    "attempts": 0,
+                    "priority": "P2",
+                },
+            ]
+        }
+
+        picked = orchestrator.pick_feature(data, max_attempts=3)
+        self.assertEqual(picked["id"], "F002")
+
     def test_validate_state_accepts_current_feature_list(self):
         result = run_command([sys.executable, "scripts/validate-state.py"])
         self.assertEqual(result.returncode, 0, result.stderr)
