@@ -93,7 +93,7 @@ Key env vars (`backend/src/config/config.go`):
 - `FFMPEG_PATH`
 - Transcription adapters: `TRANSCRIBE_URL`, `TRANSCRIBE_KEY`
 - Summarization adapters: `SUMMARIZE_URL`, `SUMMARIZE_KEY`
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`. When the key is set, OpenAI is selected before custom HTTP adapters; `OPENAI_TRANSCRIBE_MODEL` defaults to `whisper-1`.
 - `LOCAL_STORAGE_PATH`: stores generated audio/chunk artifacts under `data/storage` by default.
 
 ## Frontend (Vite + React)

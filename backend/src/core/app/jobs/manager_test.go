@@ -97,6 +97,32 @@ func TestManagerStoresLocalAudioArtifactsAndPersistsChunkMetadata(t *testing.T) 
 			t.Fatalf("stored chunk does not exist: %v", err)
 		}
 	}
+
+	segments, err := processingRepo.ListTranscriptSegments(podcastID)
+	if err != nil {
+		t.Fatalf("list transcript segments: %v", err)
+	}
+	if len(segments) != 2 {
+		t.Fatalf("expected 2 transcript segments, got %+v", segments)
+	}
+	for idx, segment := range segments {
+		wantOrder := idx + 1
+		if segment.OrderIndex != wantOrder {
+			t.Fatalf("segment order mismatch at %d: %+v", idx, segment)
+		}
+		if segment.AudioChunkID == nil || *segment.AudioChunkID != chunks[idx].ID {
+			t.Fatalf("segment missing matching audio chunk id: segment=%+v chunks=%+v", segment, chunks)
+		}
+		if segment.Provider == nil || *segment.Provider != "fixture" {
+			t.Fatalf("segment missing provider metadata: %+v", segment)
+		}
+		if segment.Model == nil || *segment.Model != "fixture-model" {
+			t.Fatalf("segment missing model metadata: %+v", segment)
+		}
+		if !strings.Contains(segment.Text, fmt.Sprintf("chunk-%c.mp3", 'a'+idx)) {
+			t.Fatalf("segment text mismatch: %+v", segment)
+		}
+	}
 }
 
 func TestManagerMarksJobFailedWhenChunkingFails(t *testing.T) {
@@ -145,6 +171,55 @@ func TestManagerMarksJobFailedWhenChunkingFails(t *testing.T) {
 	}
 	if len(chunks) != 0 {
 		t.Fatalf("failed chunking should not persist chunk metadata: %+v", chunks)
+	}
+}
+
+func TestManagerMarksJobFailedWhenTranscriptionFails(t *testing.T) {
+	ctx := context.Background()
+	db, err := dbinfra.NewSQLite(ctx, filepath.Join(t.TempDir(), "podcast.db"))
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	podcastID := createEpisode(t, db)
+	jobRepo := jobrepo.NewJobSQLiteRepo(db)
+	processingRepo := processingrepo.NewProcessingSQLiteRepo(db)
+	fixturesDir := t.TempDir()
+	provider := jobs.NewPipelineTranscriptProvider(
+		nil,
+		&fixtureDownloader{dir: fixturesDir},
+		&fixtureChunker{dir: fixturesDir},
+		&fixtureTranscriber{err: errors.New("fixture transcription failed")},
+	)
+	manager := jobs.NewManagerWithArtifacts(
+		jobRepo,
+		&allowLocker{},
+		paragraphrepo.NewParagraphSQLiteRepo(db),
+		nil,
+		provider,
+		&mirrorSummary{},
+		jobs.NewObjectStoragePublisher(storageinfra.NewLocalUploader(filepath.Join(t.TempDir(), "storage"))),
+		processingRepo,
+	)
+
+	jobID, err := manager.StartJob(ctx, podcastID, "http://audio.test/episode.mp3", nil)
+	if err != nil {
+		t.Fatalf("start job: %v", err)
+	}
+	job := waitForJobStatus(t, jobRepo, jobID, "failed")
+	if job.Error == nil || !strings.Contains(*job.Error, "transcribe chunk 1") {
+		t.Fatalf("expected transcription failure in job error, got %+v", job)
+	}
+
+	segments, err := processingRepo.ListTranscriptSegments(podcastID)
+	if err != nil {
+		t.Fatalf("list transcript segments: %v", err)
+	}
+	if len(segments) != 0 {
+		t.Fatalf("failed transcription should not persist transcript segments: %+v", segments)
 	}
 }
 
@@ -223,10 +298,26 @@ func (c *fixtureChunker) Chunk(inputPath string) ([]string, error) {
 	return []string{first, second}, nil
 }
 
-type fixtureTranscriber struct{}
+type fixtureTranscriber struct {
+	err error
+}
 
 func (t *fixtureTranscriber) TranscribeFile(path string) (string, error) {
+	if t.err != nil {
+		return "", t.err
+	}
 	return "transcribed " + filepath.Base(path), nil
+}
+
+func (t *fixtureTranscriber) TranscribeFileDetailed(path string) (domain.TranscriptionResult, error) {
+	if t.err != nil {
+		return domain.TranscriptionResult{}, t.err
+	}
+	return domain.TranscriptionResult{
+		Text:     "transcribed " + filepath.Base(path),
+		Provider: "fixture",
+		Model:    "fixture-model",
+	}, nil
 }
 
 type mirrorSummary struct{}

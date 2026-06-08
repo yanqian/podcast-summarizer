@@ -22,7 +22,9 @@ Local runtime:
 Current behavior:
 - Ingest extracts track ID, fetches metadata via iTunes lookup, enqueues job.
 - Job manager streams transcript chunks over SSE; saves transcript/summaries to SQLite.
-- Transcript fetcher/download + ffmpeg chunker + transcriber/summarizer adapters are wired; HTTP adapters used when `TRANSCRIBE_URL/KEY` and `SUMMARIZE_URL/KEY` are set, otherwise stubs.
+- Transcript fetcher/download + ffmpeg chunker + transcriber/summarizer adapters are wired.
+- When `OPENAI_API_KEY` is set, transcription uses OpenAI `audio/transcriptions` with `OPENAI_TRANSCRIBE_MODEL` (`whisper-1` by default). `whisper-1` requests `verbose_json` segment timestamps; newer transcribe models use `json` and transcript segments are associated with the stored local audio chunk.
+- Custom HTTP adapters are still available through `TRANSCRIBE_URL/KEY` and `SUMMARIZE_URL/KEY`; otherwise local stubs keep tests and smoke checks deterministic.
 
 Tests:
 - `GOCACHE=$(pwd)/.gocache go test ./...`

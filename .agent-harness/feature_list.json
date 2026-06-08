@@ -104,9 +104,9 @@
         "Transcription results are stored as ordered transcript segments with timing or chunk association metadata.",
         "Adapter tests use fixtures or test doubles and do not require a live OPENAI_API_KEY."
       ],
-      "passes": false,
-      "status": "todo",
-      "attempts": 0,
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
       "last_error": "",
       "priority": "P1",
       "depends_on": [

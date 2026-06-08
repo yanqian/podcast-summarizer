@@ -14,6 +14,8 @@ F004 has been implemented and evaluator-accepted. The implementation adds pre-pi
 
 F005 has been implemented and evaluator-accepted. The implementation stores downloaded original audio and ordered chunks under local storage, persists `audio_chunk` metadata with byte size/checksum and stable local file references, propagates download/chunk/storage failures into failed job status, and adds fixture-backed backend tests that do not require a large real podcast file.
 
+F006 has been implemented and evaluator-accepted. The implementation adds a testable OpenAI audio transcription adapter, selects OpenAI by configuration when `OPENAI_API_KEY` is set, preserves no-live-key fixture tests, fails jobs on transcription errors, and persists generated transcript segments with provider/model metadata and local audio chunk association.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -26,14 +28,15 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F005 Download and chunk podcast audio locally.
+F006 Add OpenAI transcription adapter.
 
 ## Next Feature
 
-F006 Add OpenAI transcription adapter.
+F007 Add OpenAI summarization and transcript mapping.
 
 ## Known Issues
 
 - Real OpenAI processing will require `OPENAI_API_KEY`, but routine tests and smoke checks must not require live credentials.
 - F005 now documents `ffmpeg` as the local chunking tool; routine tests use fixtures and do not require a large podcast file.
 - The Codex provider adapter produced completed coding work and an evaluator pass, but the orchestrator still recorded a non-zero coding-provider failure. Future unattended rounds may need provider adapter hardening if this repeats.
+- Manual F006 coding encountered a sandbox listener limitation when using `httptest`; adapter verification now uses a fake `http.RoundTripper` fixture, so no socket binding or live OpenAI call is required.

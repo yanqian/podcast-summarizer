@@ -127,6 +127,20 @@ type TranscriptSegment struct {
 	CreatedAt    time.Time
 }
 
+type TranscriptionResult struct {
+	Text     string
+	Segments []TranscriptionResultSegment
+	Provider string
+	Model    string
+}
+
+type TranscriptionResultSegment struct {
+	OrderIndex   int
+	StartSeconds *float64
+	EndSeconds   *float64
+	Text         string
+}
+
 type SummarySegment struct {
 	ID         string
 	EpisodeID  string
