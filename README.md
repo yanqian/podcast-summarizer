@@ -50,6 +50,14 @@ flowchart TB
 
 ## Quickstart
 
+From a fresh checkout, run the recovery check first:
+
+```bash
+./init.sh
+```
+
+It verifies the harness, backend tests, frontend tests/build, and a deterministic local SQLite backend smoke check without requiring `OPENAI_API_KEY`.
+
 1. Start the backend:
 
    ```bash

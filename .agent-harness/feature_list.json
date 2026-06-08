@@ -1,0 +1,236 @@
+{
+  "features": [
+    {
+      "id": "F001",
+      "title": "Create local-first runnable skeleton",
+      "description": "Turn the repository into a recoverable local-first app skeleton for the podcast summarizer rewrite, with root init verifying backend, frontend, harness, and a deterministic smoke path without live OpenAI credentials.",
+      "acceptance": [
+        "Root ./init.sh runs harness verification plus project-owned backend and frontend verification from a fresh checkout.",
+        "The project has documented local environment files and scripts for running backend and frontend locally.",
+        "A deterministic smoke check proves at least one backend endpoint or core function runs without requiring OPENAI_API_KEY.",
+        "The skeleton does not require Postgres, Valkey, Redis, cache services, or remote deployment configuration."
+      ],
+      "passes": true,
+      "status": "done",
+      "attempts": 3,
+      "last_error": "",
+      "priority": "P0"
+    },
+    {
+      "id": "F002",
+      "title": "Remove cloud and non-SQLite runtime paths",
+      "description": "Simplify the existing project to the accepted local-first scope by removing or neutralizing remote deployment, Postgres, Valkey, Redis, cache, and cloud-mode assumptions.",
+      "acceptance": [
+        "Runtime configuration exposes SQLite as the only database target.",
+        "Project docs and examples no longer instruct users to deploy remotely or configure Postgres, Valkey, Redis, or cache services.",
+        "Docker and local scripts start only the services required for local frontend/backend operation.",
+        "Tests or static checks prevent reintroducing required non-SQLite storage in the default runtime."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F001"
+      ]
+    },
+    {
+      "id": "F003",
+      "title": "Implement SQLite podcast processing model",
+      "description": "Define and implement SQLite persistence for episodes, processing jobs, audio chunks, transcript segments, summary segments, and transcript-to-summary mappings.",
+      "acceptance": [
+        "SQLite schema or migrations create tables for episodes, processing status, chunks, transcript segments, summary segments, and mapping records.",
+        "Go repository code can create, read, update, and query the processing entities needed by the pipeline.",
+        "Persistence tests cover normal writes, status transitions, lookup by podcast URL, and transcript-summary mapping retrieval.",
+        "Local data paths are documented and ignored from git where appropriate."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F001",
+        "F002"
+      ]
+    },
+    {
+      "id": "F004",
+      "title": "Add podcast URL ingestion and idempotency",
+      "description": "Implement backend ingestion for a submitted podcast URL, including duplicate detection so existing episodes are returned without re-running the processing pipeline.",
+      "acceptance": [
+        "Submitting a new podcast URL creates an episode or processing job record.",
+        "Submitting an already known URL returns the existing episode state without downloading, chunking, transcribing, or summarizing again.",
+        "The ingestion logic records clear statuses and errors for new and duplicate submissions.",
+        "Backend tests prove duplicate submissions are idempotent."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F003"
+      ]
+    },
+    {
+      "id": "F005",
+      "title": "Download and chunk podcast audio locally",
+      "description": "Implement local audio download and chunking for accepted podcast URLs, storing artifacts under project-owned local data directories.",
+      "acceptance": [
+        "The backend downloads episode audio into a documented local data directory.",
+        "Audio chunk metadata is persisted with stable ordering and local file references.",
+        "Chunking can run through a documented local tool or internal implementation with clear setup guidance.",
+        "Tests or fixtures verify chunk ordering, persisted metadata, and failure handling without requiring a large real podcast file."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F003",
+        "F004"
+      ]
+    },
+    {
+      "id": "F006",
+      "title": "Add OpenAI transcription adapter",
+      "description": "Implement the real transcription adapter using OpenAI while preserving fixture-backed tests that do not require live network calls.",
+      "acceptance": [
+        "The backend exposes a transcription interface with an OpenAI implementation selected by configuration.",
+        "OpenAI credentials and model configuration are documented in .env.example and README guidance.",
+        "Transcription results are stored as ordered transcript segments with timing or chunk association metadata.",
+        "Adapter tests use fixtures or test doubles and do not require a live OPENAI_API_KEY."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F005"
+      ]
+    },
+    {
+      "id": "F007",
+      "title": "Add OpenAI summarization and transcript mapping",
+      "description": "Implement OpenAI-backed summarization that groups one or more transcript paragraphs into summary segments and persists the mapping between summaries and source transcript segments.",
+      "acceptance": [
+        "The backend exposes a summarization interface with an OpenAI implementation selected by configuration.",
+        "Summary generation accepts transcript segments and produces ordered summary segments.",
+        "Each summary segment records which transcript segment IDs or paragraph groups it summarizes.",
+        "Tests verify grouping and mapping behavior with deterministic fixtures and no live OpenAI call."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F003",
+        "F006"
+      ]
+    },
+    {
+      "id": "F008",
+      "title": "Orchestrate podcast processing pipeline",
+      "description": "Connect ingestion, download, chunking, transcription, summarization, persistence, and failure handling into a resumable local processing pipeline.",
+      "acceptance": [
+        "A submitted new episode can progress through download, chunking, transcription, summarization, and completion statuses.",
+        "Failures are persisted with enough information for the admin UI and logs to explain the failed stage.",
+        "Pipeline retries or restarts do not duplicate completed artifacts for an already processed episode.",
+        "A deterministic end-to-end backend test exercises the pipeline using local fixtures."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F004",
+        "F005",
+        "F006",
+        "F007"
+      ]
+    },
+    {
+      "id": "F009",
+      "title": "Expose local backend API",
+      "description": "Provide HTTP APIs for admin submission, processing status, episode listing, and episode transcript-summary retrieval.",
+      "acceptance": [
+        "The backend has an endpoint to submit a podcast URL and return the existing or newly created episode/job.",
+        "The backend has endpoints for episode status, episode list, and detailed transcript-summary data.",
+        "API responses include enough structured data for the frontend to render admin status and episode viewer mapping.",
+        "HTTP handler tests cover success, duplicate submission, not found, and failed processing responses."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P0",
+      "depends_on": [
+        "F008"
+      ]
+    },
+    {
+      "id": "F010",
+      "title": "Build admin podcast submission UI",
+      "description": "Build a frontend admin page for submitting podcast URLs, seeing whether an episode already exists, and inspecting processing status or errors.",
+      "acceptance": [
+        "The admin page provides a podcast URL input and submit action wired to the backend API.",
+        "Submitting an existing episode shows the existing episode state instead of implying a new processing run started.",
+        "The page displays processing stage, completion, and failure states clearly.",
+        "Frontend tests or interaction checks cover submit, duplicate, loading, success, and error states."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F009"
+      ]
+    },
+    {
+      "id": "F011",
+      "title": "Build transcript and summary viewer",
+      "description": "Build the episode viewer that presents transcript paragraphs or paragraph groups together with their corresponding summary segments.",
+      "acceptance": [
+        "The viewer fetches episode detail data from the backend API.",
+        "Transcript segments are displayed in reading order with associated summary content visible near or alongside the relevant paragraphs.",
+        "The UI handles loading, empty, failed, and completed episode states.",
+        "Frontend tests or interaction checks prove transcript-summary mapping is rendered from fixture API data."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F009"
+      ]
+    },
+    {
+      "id": "F012",
+      "title": "Polish local Docker demo and documentation",
+      "description": "Finalize local Docker workflow, README guidance, demo fixtures, and portfolio-focused documentation for the rewritten podcast summarizer.",
+      "acceptance": [
+        "Docker or Docker Compose starts the local backend and frontend without remote deployment services.",
+        "README explains local setup, OpenAI configuration, deterministic demo mode, data directories, and the non-production portfolio scope.",
+        "Obsolete deployment instructions are removed or clearly marked out of scope.",
+        "A final local verification command proves the documented demo path works."
+      ],
+      "passes": false,
+      "status": "todo",
+      "attempts": 0,
+      "last_error": "",
+      "priority": "P2",
+      "depends_on": [
+        "F010",
+        "F011"
+      ]
+    }
+  ]
+}

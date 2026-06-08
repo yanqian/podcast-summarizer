@@ -25,6 +25,9 @@ func ListPodcastsHandler(repo domain.PodcastRepository) http.HandlerFunc {
 			http.Error(w, "unable to list podcasts", http.StatusInternalServerError)
 			return
 		}
+		if items == nil {
+			items = []domain.PodcastSource{}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(listResponse{Items: items})
 	}

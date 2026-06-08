@@ -8,10 +8,14 @@ Thumbs.db
 *.swp
 *.swo
 .codex/
+.agent-harness/agent-provider.json
 
 # Environment and secrets
 .env
 .env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 .envrc
 .python-version
 
