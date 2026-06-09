@@ -225,12 +225,12 @@ func (s *OpenAISummarizer) summarizeBatch(paragraphs []string) ([]string, error)
 	content := strings.TrimSpace(out.Choices[0].Message.Content)
 	content = normalizeContent(content)
 
-	summaries, structured := parseSummaries(content)
+	summaries := parseSummaries(content)
 	if len(summaries) == 0 {
 		return nil, fmt.Errorf("unable to parse summaries from OpenAI response")
 	}
 
-	summaries = alignSummariesToParagraphs(summaries, paragraphs, structured)
+	summaries = alignSummariesToParagraphs(summaries, paragraphs)
 	return summaries, nil
 }
 
@@ -250,22 +250,19 @@ func normalizeContent(content string) string {
 }
 
 // parseSummaries attempts to extract summary strings from various response shapes.
-func parseSummaries(content string) ([]string, bool) {
+func parseSummaries(content string) []string {
 	var summaries []string
 
-	// 0) Preferred: array of structured objects we can store as canonical JSON per paragraph.
+	// 0) Preferred: array of structured objects with discussion text.
 	var structuredArr []structuredSummary
 	if err := json.Unmarshal([]byte(content), &structuredArr); err == nil && len(structuredArr) > 0 {
 		for _, v := range structuredArr {
-			v.Discussion = strings.TrimSpace(v.Discussion)
-			b, err := json.Marshal(v)
-			if err != nil {
-				continue
+			if text := strings.TrimSpace(v.Discussion); text != "" {
+				summaries = append(summaries, text)
 			}
-			summaries = append(summaries, string(b))
 		}
 		if len(summaries) > 0 {
-			return summaries, true
+			return summaries
 		}
 	}
 
@@ -275,7 +272,7 @@ func parseSummaries(content string) ([]string, bool) {
 		for _, v := range arr {
 			summaries = append(summaries, strings.TrimSpace(v))
 		}
-		return summaries, false
+		return summaries
 	}
 
 	// 2) Fallback: split lines or bullet list.
@@ -288,7 +285,7 @@ func parseSummaries(content string) ([]string, bool) {
 		}
 	}
 
-	return summaries, false
+	return summaries
 }
 
 func parseStructuredSummarySegments(content string, transcripts []domain.TranscriptSegment) ([]domain.SummaryResultSegment, error) {
@@ -342,8 +339,7 @@ func parseStructuredSummarySegments(content string, transcripts []domain.Transcr
 }
 
 // alignSummariesToParagraphs enforces a 1:1 mapping and fills gaps with the source paragraph text.
-// When structured=true, fallbacks are emitted as a canonical JSON object string.
-func alignSummariesToParagraphs(summaries []string, paragraphs []string, structured bool) []string {
+func alignSummariesToParagraphs(summaries []string, paragraphs []string) []string {
 	out := make([]string, len(paragraphs))
 	for i := range paragraphs {
 		if i < len(summaries) {
@@ -356,15 +352,6 @@ func alignSummariesToParagraphs(summaries []string, paragraphs []string, structu
 		p := strings.TrimSpace(paragraphs[i])
 		if len(p) > 600 {
 			p = p[:600] + "..."
-		}
-		if structured {
-			b, err := json.Marshal(structuredSummary{Discussion: p})
-			if err == nil {
-				out[i] = string(b)
-			} else {
-				out[i] = p
-			}
-			continue
 		}
 		out[i] = p
 	}

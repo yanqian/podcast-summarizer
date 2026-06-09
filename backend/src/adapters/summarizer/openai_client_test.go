@@ -92,6 +92,33 @@ func TestOpenAISummarizerRequiresAPIKeyForSegmentSummaries(t *testing.T) {
 	}
 }
 
+func TestOpenAISummarizerUnwrapsDiscussionJSONForLegacySummaries(t *testing.T) {
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return jsonResponse([]byte(`{
+			"choices": [{
+				"message": {
+					"content": "[{\"discussion\":\"A clean discussion summary.\"}]"
+				}
+			}]
+		}`)), nil
+	})
+
+	client := NewOpenAISummarizer("test-key", "gpt-4o-mini")
+	client.Endpoint = "https://api.openai.test/v1/chat/completions"
+	client.Client = &http.Client{Transport: transport}
+
+	summaries, err := client.Summarize([]string{"Transcript text."})
+	if err != nil {
+		t.Fatalf("summarize: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("expected one summary, got %+v", summaries)
+	}
+	if summaries[0] != "A clean discussion summary." {
+		t.Fatalf("expected discussion text only, got %q", summaries[0])
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {

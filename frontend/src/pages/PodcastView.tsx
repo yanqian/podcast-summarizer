@@ -205,14 +205,16 @@ export function PodcastView({ selectedPodcast }: Props) {
                   ))}
                 </div>
               </div>
-              <aside className="rounded border border-indigo-100 bg-indigo-50 px-3 py-3 text-sm text-indigo-950">
-                <div className="mb-2 text-xs font-semibold uppercase text-indigo-700">Summary</div>
-                {group.summary ? (
-                  <p className="whitespace-pre-line break-words leading-6">{group.summary.text}</p>
-                ) : (
-                  <p className="text-indigo-800">No summary is mapped to this transcript segment yet.</p>
-                )}
-              </aside>
+              <div>
+                <div className="mb-2 flex min-h-4 items-center text-xs font-semibold uppercase text-indigo-700">Summary</div>
+                <aside className="rounded border border-indigo-100 bg-indigo-50 px-3 pb-3 pt-8 text-sm text-indigo-950">
+                  {group.summary ? (
+                    <p className="whitespace-pre-line break-words leading-6">{group.summary.text}</p>
+                  ) : (
+                    <p className="text-indigo-800">No summary is mapped to this transcript segment yet.</p>
+                  )}
+                </aside>
+              </div>
             </article>
           ))}
         </div>
