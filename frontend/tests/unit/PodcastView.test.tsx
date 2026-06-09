@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PodcastView } from '../../src/pages/PodcastView';
 
 type FetchResponse = {
@@ -86,6 +86,80 @@ describe('PodcastView', () => {
       'http://localhost:8080/api/podcasts/pod-1',
       expect.objectContaining({ method: 'GET' })
     );
+  });
+
+  it('toggles long transcript sections', async () => {
+    mockFetch([
+      jsonResponse({
+        podcastId: 'pod-1',
+        id: 'pod-1',
+        url: 'https://example.com/feed',
+        title: 'Long Show',
+        hasTranscript: true,
+        status: 'succeeded',
+        transcriptSegments: [
+          {
+            id: 'tr-1',
+            orderIndex: 1,
+            text: 'Long transcript text. '.repeat(80)
+          }
+        ],
+        summarySegments: [
+          {
+            id: 'sum-1',
+            orderIndex: 1,
+            text: 'Short summary.',
+            sourceTranscriptSegmentIds: ['tr-1']
+          }
+        ]
+      })
+    ]);
+
+    render(<PodcastView selectedPodcast={{ ...selectedPodcast, title: 'Long Show' }} />);
+
+    const showMore = await screen.findByRole('button', { name: 'Show more' });
+    fireEvent.click(showMore);
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy();
+  });
+
+  it('paginates transcript summary cards ten at a time', async () => {
+    const transcriptSegments = Array.from({ length: 11 }, (_, idx) => ({
+      id: `tr-${idx + 1}`,
+      orderIndex: idx + 1,
+      text: `Transcript segment ${idx + 1}.`
+    }));
+    const summarySegments = transcriptSegments.map((segment) => ({
+      id: `sum-${segment.orderIndex}`,
+      orderIndex: segment.orderIndex,
+      text: `Summary ${segment.orderIndex}.`,
+      sourceTranscriptSegmentIds: [segment.id]
+    }));
+    mockFetch([
+      jsonResponse({
+        podcastId: 'pod-1',
+        id: 'pod-1',
+        url: 'https://example.com/feed',
+        title: 'Paged Show',
+        hasTranscript: true,
+        status: 'succeeded',
+        transcriptSegments,
+        summarySegments
+      })
+    ]);
+
+    render(<PodcastView selectedPodcast={{ ...selectedPodcast, title: 'Paged Show' }} />);
+
+    await screen.findByText('Page 1 of 2');
+    expect(screen.getByText('Segment 10')).toBeTruthy();
+    expect(screen.queryByText('Segment 11')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Page 2 of 2')).toBeTruthy();
+    expect(screen.getByText('Segment 11')).toBeTruthy();
+    expect(screen.queryByText('Segment 1')).toBeNull();
   });
 
   it('shows an empty completed episode state when no transcript segments exist', async () => {

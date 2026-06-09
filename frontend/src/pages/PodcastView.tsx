@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, BookOpen, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FileText, Loader2 } from 'lucide-react';
 import {
   EpisodeDetail,
   PodcastListItem,
@@ -20,6 +20,9 @@ type TranscriptSummaryGroup = {
   summary?: SummarySegment;
   transcripts: TranscriptSegment[];
 };
+
+const GROUPS_PER_PAGE = 10;
+const COLLAPSE_TEXT_LENGTH = 700;
 
 function statusLabel(status?: string) {
   if (!status) return 'Not started';
@@ -79,22 +82,32 @@ function groupTranscriptBySummary(detail?: EpisodeDetail): TranscriptSummaryGrou
   return [...summaryGroups, ...orphanGroups].sort((a, b) => a.orderIndex - b.orderIndex);
 }
 
+function shouldCollapseGroup(group: TranscriptSummaryGroup) {
+  return group.transcripts.reduce((total, segment) => total + segment.text.length, 0) > COLLAPSE_TEXT_LENGTH;
+}
+
 export function PodcastView({ selectedPodcast }: Props) {
   const [requestState, setRequestState] = useState<RequestState>('idle');
   const [detail, setDetail] = useState<EpisodeDetail | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!selectedPodcast?.id) {
       setRequestState('idle');
       setDetail(undefined);
       setError(undefined);
+      setExpandedGroups(new Set());
+      setCurrentPage(1);
       return;
     }
 
     let cancelled = false;
     setRequestState('loading');
     setError(undefined);
+    setExpandedGroups(new Set());
+    setCurrentPage(1);
     fetchEpisodeDetail(selectedPodcast.id)
       .then((nextDetail) => {
         if (cancelled) return;
@@ -114,6 +127,11 @@ export function PodcastView({ selectedPodcast }: Props) {
   }, [selectedPodcast?.id]);
 
   const groups = useMemo(() => groupTranscriptBySummary(detail), [detail]);
+  const totalPages = Math.max(1, Math.ceil(groups.length / GROUPS_PER_PAGE));
+  const visibleGroups = useMemo(() => {
+    const start = (currentPage - 1) * GROUPS_PER_PAGE;
+    return groups.slice(start, start + GROUPS_PER_PAGE);
+  }, [currentPage, groups]);
   const failed = isFailed(detail);
   const latestError = detail?.latestJob?.errorMessage;
   const hasTranscript = groups.some((group) => group.transcripts.length > 0);
@@ -186,7 +204,7 @@ export function PodcastView({ selectedPodcast }: Props) {
 
       {requestState === 'ready' && hasTranscript && (
         <div className="space-y-4">
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <article key={group.key} className="grid gap-3 rounded border border-slate-200 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(220px,0.8fr)]">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
@@ -200,10 +218,35 @@ export function PodcastView({ selectedPodcast }: Props) {
                         <span>Segment {segment.orderIndex}</span>
                         {formatTimeRange(segment) && <span>{formatTimeRange(segment)}</span>}
                       </div>
-                      <p className="whitespace-pre-line break-words text-sm leading-6 text-slate-900">{segment.text}</p>
+                      <div className={`relative ${shouldCollapseGroup(group) && !expandedGroups.has(group.key) ? 'max-h-[22rem] overflow-hidden' : ''}`}>
+                        <p className="whitespace-pre-line break-words text-sm leading-6 text-slate-900">{segment.text}</p>
+                        {shouldCollapseGroup(group) && !expandedGroups.has(group.key) && (
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-50 to-transparent" />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
+                {shouldCollapseGroup(group) && (
+                  <button
+                    type="button"
+                    className="mt-2 inline-flex items-center gap-1 rounded px-1 py-1 text-sm font-normal text-slate-600 hover:bg-slate-100"
+                    onClick={() => {
+                      setExpandedGroups((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(group.key)) {
+                          next.delete(group.key);
+                        } else {
+                          next.add(group.key);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {expandedGroups.has(group.key) ? <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" /> : <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />}
+                    {expandedGroups.has(group.key) ? 'Show less' : 'Show more'}
+                  </button>
+                )}
               </div>
               <div>
                 <div className="mb-2 flex min-h-4 items-center text-xs font-semibold uppercase text-indigo-700">Summary</div>
@@ -217,6 +260,35 @@ export function PodcastView({ selectedPodcast }: Props) {
               </div>
             </article>
           ))}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage === 1}
+                onClick={() => {
+                  setCurrentPage((page) => Math.max(1, page - 1));
+                }}
+              >
+                <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
+                Previous
+              </button>
+              <span className="text-xs font-medium">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage === totalPages}
+                onClick={() => {
+                  setCurrentPage((page) => Math.min(totalPages, page + 1));
+                }}
+              >
+                Next
+                <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </section>
