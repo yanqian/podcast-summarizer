@@ -21,10 +21,10 @@ Local runtime:
 
 Current behavior:
 - Ingest extracts track ID, fetches metadata via iTunes lookup, enqueues job.
-- Job manager streams transcript chunks over SSE; saves transcript/summaries to SQLite.
+- Job manager persists processing status, transcript segments, summary segments, and transcript-summary mappings to SQLite. The backend still exposes compatibility detail, view, export, resummarize, and SSE endpoints for API-level use, but the current frontend uses list, detail, ingest, and status HTTP endpoints.
 - Transcript fetcher/download + ffmpeg chunker + transcriber/summarizer adapters are wired.
 - When `OPENAI_API_KEY` is set, transcription uses OpenAI `audio/transcriptions` with `OPENAI_TRANSCRIBE_MODEL` (`whisper-1` by default). `whisper-1` requests `verbose_json` segment timestamps; newer transcribe models use `json` and transcript segments are associated with the stored local audio chunk.
-- Optional custom HTTP adapters are still available through `TRANSCRIBE_URL/KEY` and `SUMMARIZE_URL/KEY`; otherwise local stubs keep tests and smoke checks deterministic.
+- When `OPENAI_API_KEY` is unset, deterministic local stubs keep tests and smoke checks free of live OpenAI calls.
 
 Docker runtime:
 - The backend image includes `ffmpeg`, `curl`, and the compiled API server.

@@ -1,7 +1,7 @@
 # Frontend
 
 Initialized directories for Vite + React + TypeScript:
-- `src/components`, `src/pages`, `src/hooks`, `src/services`, `src/styles`
+- `src/components`, `src/pages`, `src/services`, `src/styles`
 - `tests/unit`
 
 Current behavior:

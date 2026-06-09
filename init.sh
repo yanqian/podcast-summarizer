@@ -123,8 +123,6 @@ smoke_port="$(choose_port)"
 		SQLITE_PATH="$BACKEND_SMOKE_DB" \
 		LOCAL_STORAGE_PATH="$BACKEND_SMOKE_STORAGE" \
 		OPENAI_API_KEY= \
-		TRANSCRIBE_URL= \
-		SUMMARIZE_URL= \
 		GOCACHE="$GO_CACHE_DIR" \
 		go run ./cmd/server
 ) >"$BACKEND_SMOKE_LOG" 2>&1 &

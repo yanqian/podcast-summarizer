@@ -38,7 +38,7 @@ flowchart TB
 
 ## Project layout
 - `backend/`: Go services, adapters, infra, and jobs; entrypoint at `cmd/server`.
-- `frontend/`: Vite SPA, pages/components/hooks/services; talks to the backend API.
+- `frontend/`: Vite SPA, pages/components/services/styles, and tests; talks to the backend API.
 - `compose.yaml`: Two-service local Docker demo for the backend and frontend.
 - `DEPLOYMENT.md`: Local and Docker demo runbook for portfolio review.
 - `specs/`: planning artifacts.
@@ -106,8 +106,7 @@ Key env vars (`backend/src/config/config.go`):
 - `SQLITE_PATH`: defaults to `data/podcast.db`.
 - `API_BASE_URL` (public base for building links)
 - `FFMPEG_PATH`
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`. When the key is set, OpenAI is selected before custom HTTP adapters; `OPENAI_TRANSCRIBE_MODEL` defaults to `whisper-1`.
-- Optional custom HTTP adapters: `TRANSCRIBE_URL`, `TRANSCRIBE_KEY`, `SUMMARIZE_URL`, `SUMMARIZE_KEY`.
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_SUMMARIZE_MODEL`. When the key is set, OpenAI is selected for real transcription and summarization; `OPENAI_TRANSCRIBE_MODEL` defaults to `whisper-1`.
 - `LOCAL_STORAGE_PATH`: stores generated audio/chunk artifacts under `data/storage` by default.
 
 ## Frontend (Vite + React)

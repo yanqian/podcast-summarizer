@@ -1,7 +1,6 @@
 package summarizer
 
 // SimpleSummarizer returns a short summary prefix for each paragraph.
-// TODO: Replace with real summarization service (e.g., SUMMARIZE_URL + SUMMARIZE_KEY).
 type SimpleSummarizer struct{}
 
 func NewSimpleSummarizer() *SimpleSummarizer {

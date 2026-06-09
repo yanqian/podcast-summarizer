@@ -12,16 +12,16 @@ Branch: 001-podcast-summary-ui
 
 1. Install frontend deps: `cd frontend && npm ci`
 2. Install backend deps: `cd backend && go mod download`
-3. Optional: copy `backend/.env.example` to `backend/.env` and fill external adapter keys.
+3. Optional: copy `backend/.env.example` to `backend/.env` and set OpenAI keys for live transcription and summarization.
 
 ## Run
 
-1. Backend: `cd backend && go run ./cmd/server` (exposes REST API per contracts/openapi.yaml)
+1. Backend: `cd backend && go run ./cmd/server`
    - Uses SQLite at `backend/data/podcast.db` unless `SQLITE_PATH` is set.
    - Defaults to local file storage at `backend/data/storage` for generated audio/chunk artifacts.
-   - Uses SSE at `/api/streams/transcript/{jobId}` for chunk streaming.
+   - Uses deterministic local stubs when `OPENAI_API_KEY` is unset.
 2. Frontend: `cd frontend && npm run dev` (Vite dev server)
-3. Open app, paste a podcast URL, observe streaming transcript chunks, and view aligned transcript/summary when complete.
+3. Open the app. The Demo screen lists local episodes and renders segment-to-summary mappings; switch to Admin to submit podcast URLs and refresh processing status.
 
 ## Tests
 
@@ -36,13 +36,13 @@ Branch: 001-podcast-summary-ui
 - Performance budgets: UI interactions p95 <200ms; existing transcripts end-to-end <10s; transcription +
   summary for ≤60m episodes <5m for 90% cases.
 - Logs: instrument transcript fetch/transcribe/summarize durations; surface job durations in status API.
-- Placeholder perf checks: record ingest job durations in logs, capture p95 for streaming chunk arrival when
-  running against real transcription/summarization services; verify export latency under 1s for small transcripts.
+- Placeholder perf checks: record ingest job durations in logs, capture p95 for Admin status refresh and Demo detail rendering when
+  running against real transcription/summarization services; verify export endpoint latency under 1s for small transcripts.
 - Security: ingest validates URL scheme/length and caps request body; errors returned to clients are generic
   to avoid leaking internals.
 
 ## Current Status
 
-- SSE streaming implemented with stubbed transcription/summarization; replace stubs with real services before release.
+- Demo/Admin frontend flow implemented with stubbed no-key transcription/summarization and OpenAI-backed live mode when configured.
 - SQLite-only demo storage implemented.
 - Frontend deps installed via npm; backend tests pass; frontend unit test runs via vitest; no e2e runner.

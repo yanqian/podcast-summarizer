@@ -5,7 +5,7 @@ import (
 )
 
 // Transcriber calls an external transcription service for an audio chunk.
-// TODO: Replace stub with real service endpoint/auth (e.g., TRANSCRIBE_URL + TRANSCRIBE_KEY).
+// NewTranscriber returns the deterministic no-key transcription stub.
 type Transcriber struct{}
 
 func NewTranscriber() *Transcriber {

@@ -2,7 +2,7 @@
 
 ## Current System Status
 
-Harness is installed and runnable. The project minspec for a local-first podcast summarizer rewrite has been accepted and recorded in `SPEC.md`.
+Harness is installed and runnable. The project minspec for a local-first podcast summarizer rewrite has been accepted and recorded in `.agent-harness/SPEC.md`.
 
 F001 has been implemented and evaluator-accepted. Root `./init.sh` now runs harness verification, backend Go tests, frontend tests/build, and a deterministic local SQLite backend smoke check without live OpenAI credentials.
 
@@ -32,7 +32,7 @@ F013 has been implemented and evaluator-accepted via manual fallback. The existi
 
 F014 has been implemented and evaluator-accepted via manual fallback. Legacy SQLite table schemas (`podcast_source`, `transcript_paragraph`, and `summary_paragraph`) were removed from checked-in SQLite initialization and dropped from the local demo database after preserving current segment/mapping data. Export and resummarize now use current transcript/summary segment tables, and the normal pipeline no longer writes legacy paragraph rows.
 
-F015 has been implemented via manual Coding Agent fallback and is ready for evaluator review. The frontend now opens on a default Demo screen with episode list selection and segment-to-summary rendering, provides an Admin screen for local submission/status/refresh, removes frontend-only streaming `/view`, paragraph compatibility, export, and status helper paths from the active UI contract, and updates frontend tests and docs for the two-screen flow.
+F015 has been implemented via manual Coding Agent fallback and evaluator-accepted. The frontend now opens on a default Demo screen with episode list selection and segment-to-summary rendering, provides an Admin screen for local submission/status/refresh, removes frontend-only streaming `/view`, paragraph compatibility, export, and status helper paths from the active UI contract, and updates frontend tests and docs for the two-screen flow.
 
 The rewrite direction is:
 
@@ -44,13 +44,15 @@ The rewrite direction is:
 - Deterministic fixture/stub verification for tests and smoke checks without live OpenAI calls.
 - No remote deployment, Postgres, Valkey, Redis, cache services, or cloud mode.
 
+The latest consistency cleanup aligns docs and runtime configuration with the accepted local-first scope: active frontend demo docs now describe the Demo/Admin HTTP flow instead of obsolete SSE/export UI behavior, and backend runtime configuration no longer exposes custom non-OpenAI transcription or summarization provider knobs.
+
 ## Last Completed Feature
 
-F014 Remove legacy SQLite table schemas.
+F015 Simplify frontend Admin and Demo pages.
 
 ## Next Feature
 
-F015 Simplify frontend Admin and Demo pages pending evaluator review.
+No planned feature is currently pending.
 
 ## Known Issues
 

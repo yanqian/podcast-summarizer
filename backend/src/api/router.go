@@ -86,15 +86,11 @@ func NewRouter(deps Dependencies) http.Handler {
 	var transcriberClient jobs.TranscriptionFileClient = transcription.NewTranscriber()
 	if deps.Config.OpenAIAPIKey != "" {
 		transcriberClient = transcription.NewOpenAITranscriber(deps.Config.OpenAIAPIKey, deps.Config.OpenAITranscribeModel)
-	} else if deps.Config.TranscribeURL != "" {
-		transcriberClient = transcription.NewHTTPClient(deps.Config.TranscribeURL, deps.Config.TranscribeKey)
 	}
 
 	var summarizerClient jobs.SummaryClient = summarizer.NewSimpleSummarizer()
 	if deps.Config.OpenAIAPIKey != "" {
 		summarizerClient = summarizer.NewOpenAISummarizer(deps.Config.OpenAIAPIKey, deps.Config.OpenAISummarizeModel)
-	} else if deps.Config.SummarizeURL != "" {
-		summarizerClient = summarizer.NewHTTPSummarizer(deps.Config.SummarizeURL, deps.Config.SummarizeKey)
 	}
 
 	ingestSvc := app.NewIngestService(itunes, transcriptFetcher, podcastRepo)

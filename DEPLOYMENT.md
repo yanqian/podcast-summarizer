@@ -36,14 +36,14 @@ Use this when showing the project on a resume, in an interview, or in a short sc
    npm run dev -- --host
    ```
 
-3. Open the Vite dev URL and submit a podcast URL.
+3. Open the Vite dev URL. The Demo screen is the default read-only viewer; switch to Admin when you want to submit a podcast URL.
 
 4. Show these behaviors:
-   - Ingest accepts a podcast URL and creates a processing job.
-   - Transcript progress streams into the UI through SSE.
-   - Summary paragraphs align with transcript paragraphs.
+   - The Demo screen lists local episodes and renders transcript segments beside mapped summary content.
+   - The Admin screen accepts a podcast URL, distinguishes existing episodes from new jobs, and shows processing status or errors.
+   - Manual refresh updates the selected episode state.
    - The podcast list and detail view persist across restarts because data is stored in SQLite.
-   - Export endpoints return reusable transcript/summary output.
+   - Backend detail and export endpoints remain available for API-level checks, but export/SSE are not the active frontend demo flow.
 
 Local data lives under `backend/data/` and is ignored by git.
 Generated audio, chunks, and the SQLite database remain local to that directory unless overridden by environment variables.
@@ -64,10 +64,6 @@ Optional model adapters:
 OPENAI_API_KEY=
 OPENAI_TRANSCRIBE_MODEL=whisper-1
 OPENAI_SUMMARIZE_MODEL=gpt-4o-mini
-TRANSCRIBE_URL=
-TRANSCRIBE_KEY=
-SUMMARIZE_URL=
-SUMMARIZE_KEY=
 ```
 
 If `OPENAI_API_KEY` is unset, routine verification stays deterministic and avoids live OpenAI calls. Backend tests and `./init.sh` use local fixtures or stub adapters; submitted real podcast URLs can still exercise ingestion and status handling, but real transcription and summarization require a configured OpenAI key.
@@ -114,13 +110,13 @@ For a resume or project page, emphasize the engineering choices rather than infr
 
 - Clean architecture in Go with repository and adapter boundaries.
 - SQLite as the runtime database because the project is easy to run and inspect.
-- SSE streaming from backend jobs to the React UI.
-- Media pipeline integration around download, `ffmpeg` chunking, transcription, summarization, and export.
+- A small React portfolio UI with Demo and Admin screens over the backend HTTP API.
+- Media pipeline integration around download, `ffmpeg` chunking, transcription, summarization, status persistence, and export endpoints.
 - Non-production scope: this is a single-machine portfolio app, not a multi-user hosted service.
 
 Suggested demo assets:
 
-- A short screen recording of ingest -> streaming transcript -> summary view.
+- A short screen recording of Demo browsing plus Admin ingest/status refresh.
 - A screenshot of the podcast list after restarting the backend to show persistence.
 - A small architecture diagram or the Mermaid diagram from `README.md`.
 
