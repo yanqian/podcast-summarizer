@@ -125,8 +125,8 @@ export function PodcastView({ selectedPodcast }: Props) {
         <div className="flex items-start gap-3 text-slate-700">
           <BookOpen aria-hidden="true" className="mt-0.5 h-5 w-5" />
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Transcript and summary</h2>
-            <p className="mt-1 text-sm">Select a podcast to view transcript and summary mappings.</p>
+            <h2 className="text-xl font-semibold text-slate-950">Demo transcript and summary</h2>
+            <p className="mt-1 text-sm">Select an episode to view transcript segments and mapped summaries.</p>
           </div>
         </div>
       </section>
@@ -137,7 +137,7 @@ export function PodcastView({ selectedPodcast }: Props) {
     <section className="rounded border bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-slate-950">Transcript and summary</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Demo transcript and summary</h2>
           <p className="mt-1 truncate text-sm text-slate-600" title={title}>
             {title}
           </p>

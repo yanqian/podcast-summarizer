@@ -5,8 +5,9 @@ Initialized directories for Vite + React + TypeScript:
 - `tests/unit`
 
 Current behavior:
-- Accepts podcast URL, calls ingest, subscribes to SSE stream at `/api/streams/transcript/{jobId}`, renders streaming transcript chunks, then fetches aligned transcript/summaries when stream completes.
-- Status banner covers idle/loading/streaming/error/success states.
+- Opens on the Demo screen, which lists local episodes and renders transcript segments beside mapped summary segments from the current episode detail API.
+- Provides an Admin screen, reachable through in-app navigation, for podcast URL submission, duplicate episode detection, processing status, errors, and manual refresh.
+- Uses the backend HTTP episode list, detail, ingest, and status endpoints. The active frontend contract does not use SSE streaming, `/view`, export controls, or paragraph compatibility data.
 
 Configuration:
 - `VITE_API_BASE_URL` defaults to `http://localhost:8080`.
@@ -15,4 +16,4 @@ Configuration:
 - The frontend container health check uses `/health`; it does not contact external services.
 
 Tests:
-- `npm test` runs Vitest unit tests for the submission flow and transcript-summary viewer.
+- `npm test` runs Vitest unit tests for the two-screen shell, submission flow, and segment-based transcript-summary viewer.

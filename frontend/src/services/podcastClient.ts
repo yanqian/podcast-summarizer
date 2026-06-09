@@ -29,13 +29,6 @@ export type EpisodeStatus = {
   latestJob?: EpisodeJobStatus;
 };
 
-type Paragraph = {
-  paragraphId: string;
-  orderIndex: number;
-  text: string;
-  summary: string;
-};
-
 export type TranscriptSegment = {
   id: string;
   orderIndex: number;
@@ -55,12 +48,6 @@ export type EpisodeDetail = EpisodeStatus & {
   description?: string;
   transcriptSegments: TranscriptSegment[];
   summarySegments: SummarySegment[];
-  paragraphs: Paragraph[];
-};
-
-type TranscriptView = {
-  podcastId: string;
-  paragraphs: Paragraph[];
 };
 
 export type PodcastListItem = {
@@ -79,10 +66,6 @@ export async function ingestPodcast(url: string): Promise<JobAccepted> {
     body: { url }
   });
   return normalizeJobAccepted(resp);
-}
-
-export async function fetchView(podcastId: string): Promise<TranscriptView> {
-  return apiRequest<TranscriptView>(`/api/podcasts/${podcastId}/view`);
 }
 
 export async function fetchEpisodeDetail(podcastId: string): Promise<EpisodeDetail> {
@@ -190,28 +173,16 @@ function normalizeSummarySegment(raw: unknown): SummarySegment {
   };
 }
 
-function normalizeParagraph(raw: unknown): Paragraph {
-  const record = asRecord(raw);
-  return {
-    paragraphId: pickString(record, 'paragraphId', 'ParagraphID'),
-    orderIndex: pickNumber(record, 'orderIndex', 'OrderIndex') ?? 0,
-    text: pickString(record, 'text', 'Text'),
-    summary: pickString(record, 'summary', 'Summary')
-  };
-}
-
 function normalizeEpisodeDetail(raw: unknown): EpisodeDetail {
   const record = asRecord(raw);
   const status = normalizeEpisodeStatus(raw);
   const transcriptSegments = record.transcriptSegments ?? record.TranscriptSegments;
   const summarySegments = record.summarySegments ?? record.SummarySegments;
-  const paragraphs = record.paragraphs ?? record.Paragraphs;
   return {
     ...status,
     description: pickString(record, 'description', 'Description') || undefined,
     transcriptSegments: Array.isArray(transcriptSegments) ? transcriptSegments.map(normalizeTranscriptSegment) : [],
-    summarySegments: Array.isArray(summarySegments) ? summarySegments.map(normalizeSummarySegment) : [],
-    paragraphs: Array.isArray(paragraphs) ? paragraphs.map(normalizeParagraph) : []
+    summarySegments: Array.isArray(summarySegments) ? summarySegments.map(normalizeSummarySegment) : []
   };
 }
 

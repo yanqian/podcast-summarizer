@@ -102,6 +102,80 @@ The app is meant for a resume or personal website demonstration. It should be un
 
 This rewrite is split into multiple features because it crosses separate verification boundaries: runnable recovery, local runtime cleanup, persistence, ingestion/idempotency, audio chunking, OpenAI transcription, OpenAI summarization, pipeline orchestration, backend APIs, admin UI, episode viewer UI, and documentation/demo polish. The runnable skeleton must come first so later product behavior has a reliable recovery contract. OpenAI provider work is split by transcription and summarization because each has different inputs, outputs, cost behavior, and test fixtures.
 
+## Accepted Requirement: Simplify Frontend Into Admin And Demo Pages
+
+### Goal
+
+Refine the React frontend into a small portfolio-ready application with two clear screens: an Admin screen for submitting podcast URLs and inspecting processing status, and a Demo screen for browsing existing episodes and viewing transcript segments beside their mapped summaries.
+
+### Scope Included
+
+- A simple frontend navigation or route state that exposes a Demo page and an Admin page without adding a large routing framework.
+- A Demo page focused on read-only portfolio review: episode list, selected episode detail, transcript-summary mapping, and clear empty/loading/error states.
+- An Admin page focused on local operator workflow: URL submission, duplicate detection messaging, processing status, refresh, and failure display.
+- Cleanup of frontend-only legacy paths that no longer match the current segment model, including unused streaming, `/view`, paragraph compatibility, and unused export/status components when they are not part of the simplified UI.
+- Documentation updates so README and frontend README describe the real Admin/Demo flow instead of obsolete SSE streaming or export behavior.
+- Frontend tests that prove page navigation, Admin submission behavior, and Demo transcript-summary rendering.
+
+### Scope Excluded
+
+- Backend API changes unless a frontend contract mismatch is discovered and must be fixed to complete the page split.
+- New authentication, protected admin access, multi-user roles, or production admin controls.
+- Adding React Router or another routing dependency.
+- Live OpenAI verification, visual browser automation, or deployment changes.
+- Reintroducing legacy paragraph tables, `/view`-only data dependencies, or SSE streaming as required UI behavior.
+
+### Core Flows
+
+1. A portfolio reviewer opens the frontend and lands on the Demo page.
+2. The Demo page lists locally stored podcast episodes and lets the reviewer select one.
+3. The Demo page displays transcript segments in order with the corresponding summary content near or alongside the source segments.
+4. A local operator opens the Admin page, submits a podcast URL, and sees whether the backend created a new job or returned an existing episode.
+5. The Admin page shows the current processing stage, completion state, and any failure message, with a manual refresh action.
+
+### Constraints
+
+- Keep the frontend intentionally small and local-first.
+- Use the existing Vite, React, TypeScript, Tailwind, and lucide stack.
+- Do not add a remote deployment path, persistent browser cache layer, or new backend storage mode.
+- Keep tests deterministic with fixture fetch responses and no live backend or OpenAI dependency.
+- Prefer current episode detail segment/mapping data over compatibility paragraph responses.
+
+### Ambiguities Or Assumptions
+
+- "Demo page" means the default public-facing portfolio view, not a marketing landing page.
+- "Admin page" is a local operator screen; no password or auth is required for this portfolio app.
+- Simple tab, hash, or internal route state is sufficient because this is a small two-screen demo.
+
+### Required Capabilities
+
+- Existing frontend Node/npm toolchain.
+- Existing backend API contracts for episode list, episode status, ingest, and episode detail.
+- Fixture-based frontend tests through Vitest and Testing Library.
+
+### Implementation Paths
+
+- `frontend/src/pages/App.tsx`
+- `frontend/src/pages/AdminSubmissionPage.tsx`
+- `frontend/src/pages/PodcastView.tsx`
+- New or renamed frontend page/component files under `frontend/src/pages` and `frontend/src/components`
+- `frontend/src/services/podcastClient.ts`
+- `frontend/tests/unit`
+- `frontend/README.md`
+- `README.md`
+
+### Verification Surface
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Root `./init.sh`
+- Static inspection that frontend docs no longer advertise obsolete SSE streaming/export as the current primary UI flow.
+
+### Feature Decomposition Decision
+
+This requirement is intentionally one feature because the Admin/Demo page split, frontend legacy cleanup, docs, and tests share one coherent verification surface: the simplified frontend information architecture. It is independently evaluable without backend schema, Docker, OpenAI, or persistence changes.
+
 ## 1. Goal
 
 Provide a minimal, copyable repository harness for controlled AI-assisted development with Codex, Claude Code, Cursor Agent, or similar coding agents.

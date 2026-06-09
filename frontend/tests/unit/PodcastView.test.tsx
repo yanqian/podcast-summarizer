@@ -43,7 +43,7 @@ describe('PodcastView', () => {
   it('prompts for an episode before one is selected', () => {
     render(<PodcastView />);
 
-    expect(screen.getByText('Select a podcast to view transcript and summary mappings.')).toBeTruthy();
+    expect(screen.getByText('Select an episode to view transcript segments and mapped summaries.')).toBeTruthy();
   });
 
   it('fetches episode detail and renders transcript groups beside mapped summaries', async () => {
@@ -59,7 +59,7 @@ describe('PodcastView', () => {
         transcriptSegments: [
           { id: 'tr-1', orderIndex: 1, text: 'The host introduces local podcast processing.', startSeconds: 0, endSeconds: 12 },
           { id: 'tr-2', orderIndex: 2, text: 'The guest explains grouped summaries.', startSeconds: 12, endSeconds: 28 },
-          { id: 'tr-3', orderIndex: 3, text: 'An unmapped closing paragraph remains readable.' }
+          { id: 'tr-3', orderIndex: 3, text: 'An unmapped closing segment remains readable.' }
         ],
         summarySegments: [
           {
@@ -69,7 +69,6 @@ describe('PodcastView', () => {
             sourceTranscriptSegmentIds: ['tr-1', 'tr-2']
           }
         ],
-        paragraphs: []
       })
     ]);
 
@@ -81,7 +80,7 @@ describe('PodcastView', () => {
     expect(screen.getByText('The host introduces local podcast processing.')).toBeTruthy();
     expect(screen.getByText('The guest explains grouped summaries.')).toBeTruthy();
     expect(screen.getByText('Intro and grouped summary explanation.')).toBeTruthy();
-    expect(screen.getByText('An unmapped closing paragraph remains readable.')).toBeTruthy();
+    expect(screen.getByText('An unmapped closing segment remains readable.')).toBeTruthy();
     expect(screen.getByText('No summary is mapped to this transcript segment yet.')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:8080/api/podcasts/pod-1',
@@ -99,8 +98,7 @@ describe('PodcastView', () => {
         hasTranscript: false,
         status: 'not_started',
         transcriptSegments: [],
-        summarySegments: [],
-        paragraphs: []
+        summarySegments: []
       })
     ]);
 
@@ -126,8 +124,7 @@ describe('PodcastView', () => {
           errorMessage: 'chunk audio failed'
         },
         transcriptSegments: [],
-        summarySegments: [],
-        paragraphs: []
+        summarySegments: []
       })
     ]);
 

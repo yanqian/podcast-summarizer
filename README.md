@@ -1,20 +1,20 @@
 # Podcast Summarizer
 
-Local-first podcast ingestion and summarization app built as a portfolio project. The backend is Go with clean architecture boundaries, SQLite persistence, HTTP APIs, and SSE streaming. The frontend is Vite + React + TypeScript.
+Local-first podcast ingestion and summarization app built as a portfolio project. The backend is Go with clean architecture boundaries, SQLite persistence, and HTTP APIs. The frontend is Vite + React + TypeScript.
 
 The default path is intentionally simple: run it on one machine, store data in `backend/data/podcast.db`, and keep generated audio artifacts under `backend/data/storage`.
 
 ## What it demonstrates
-- End-to-end podcast workflow: ingest a podcast URL, fetch metadata, stream transcription progress, summarize aligned transcript paragraphs, and export results.
+- End-to-end podcast workflow: ingest a podcast URL, fetch metadata, process audio locally, and summarize aligned transcript segments.
 - Local-first persistence with SQLite as the only database runtime.
-- Streaming UX via Server-Sent Events from Go to React.
+- Two-screen portfolio UI with a read-only Demo viewer and a local Admin submission/status screen.
 - Adapter boundaries for transcription, summarization, media chunking, local artifact storage, and podcast metadata lookup.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-  UI["React frontend"] -->|"HTTP + SSE"| API["Go API handlers"]
+  UI["React frontend"] -->|"HTTP"| API["Go API handlers"]
 
   API --> Ingest["Ingest podcast URL"]
   API --> Jobs["Process transcript job"]
@@ -24,7 +24,6 @@ flowchart TB
 
   Jobs --> TranscriptPipeline["Transcript pipeline"]
   Jobs --> SummarySvc["Summary pipeline"]
-  Jobs --> Notifier["SSE progress events"]
   Jobs --> Repos
 
   Repos --> LocalDB["backend/data/podcast.db"]
@@ -76,7 +75,7 @@ It verifies the harness, backend tests, frontend tests/build, and a local SQLite
    npm run dev -- --host
    ```
 
-3. Open the Vite dev URL, submit a podcast URL, and watch the transcript stream in.
+3. Open the Vite dev URL. The Demo screen is the default read-only viewer; switch to Admin to submit podcast URLs and refresh processing status.
 
 Local data is created under `backend/data/` and ignored by git.
 Generated media files, such as downloaded audio and ffmpeg chunks, are stored under `backend/data/storage/` in local mode and are also ignored by git.

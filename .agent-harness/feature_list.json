@@ -273,6 +273,28 @@
       "depends_on": [
         "F013"
       ]
+    },
+    {
+      "id": "F015",
+      "title": "Simplify frontend Admin and Demo pages",
+      "description": "Refine the React frontend into a small two-page portfolio UI with a read-only Demo page for episode transcript-summary viewing and a local Admin page for podcast URL submission/status, while removing frontend legacy streaming/view/paragraph paths that no longer match the current segment model.",
+      "acceptance": [
+        "The frontend exposes clear Demo and Admin screens with simple navigation and no new routing dependency.",
+        "The Demo screen is the default portfolio-facing view and renders episode list selection plus transcript segments beside mapped summary content from the current episode detail API.",
+        "The Admin screen submits podcast URLs, distinguishes existing episodes from new jobs, displays processing status/errors, and supports manual refresh.",
+        "Frontend-only legacy SSE streaming, /view, paragraph compatibility, and unused export/status component paths are removed or no longer part of the active UI contract.",
+        "Frontend tests, frontend lint/build, docs, and root ./init.sh verify the simplified Admin/Demo flow."
+      ],
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F010",
+        "F011",
+        "F014"
+      ]
     }
   ]
 }

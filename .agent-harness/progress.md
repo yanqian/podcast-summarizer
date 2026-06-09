@@ -32,6 +32,8 @@ F013 has been implemented and evaluator-accepted via manual fallback. The existi
 
 F014 has been implemented and evaluator-accepted via manual fallback. Legacy SQLite table schemas (`podcast_source`, `transcript_paragraph`, and `summary_paragraph`) were removed from checked-in SQLite initialization and dropped from the local demo database after preserving current segment/mapping data. Export and resummarize now use current transcript/summary segment tables, and the normal pipeline no longer writes legacy paragraph rows.
 
+F015 has been implemented via manual Coding Agent fallback and is ready for evaluator review. The frontend now opens on a default Demo screen with episode list selection and segment-to-summary rendering, provides an Admin screen for local submission/status/refresh, removes frontend-only streaming `/view`, paragraph compatibility, export, and status helper paths from the active UI contract, and updates frontend tests and docs for the two-screen flow.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -48,7 +50,7 @@ F014 Remove legacy SQLite table schemas.
 
 ## Next Feature
 
-All planned features are complete.
+F015 Simplify frontend Admin and Demo pages pending evaluator review.
 
 ## Known Issues
 
@@ -59,3 +61,4 @@ All planned features are complete.
 - Manual F010 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`) and the in-app Browser surface was unavailable (`iab` not available). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, and Vite production build; browser visual inspection remains an environment limitation for this run.
 - Manual F011 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, Vite production build, feature validation, and final root `./init.sh`; browser visual inspection remains an environment limitation for this run.
 - F012 was initially blocked by Docker API access from the sandboxed provider, then completed after using the harness custom-provider contract for an orchestrator-dispatched local evaluator with Docker API access. The final Docker verifier passed through `./scripts/verify-docker-demo.sh`.
+- Manual F015 coding encountered the same sandbox listener limitation for the frontend dev server (`listen EPERM` on `127.0.0.1:5173`). Frontend behavior is verified by Vitest interaction tests, lint, TypeScript build, Vite production build, and final root `./init.sh`; browser visual inspection remains an environment limitation for this run.
