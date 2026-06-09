@@ -59,6 +59,14 @@ type summarySegmentResponse struct {
 	SourceTranscriptSegmentIDs []string `json:"sourceTranscriptSegmentIds"`
 }
 
+type paragraph struct {
+	ParagraphID string   `json:"paragraphId"`
+	OrderIndex  int      `json:"orderIndex"`
+	Text        string   `json:"text"`
+	Timestamp   *float64 `json:"timestampSeconds,omitempty"`
+	Summary     string   `json:"summary"`
+}
+
 type episodeDetailResponse struct {
 	PodcastID          string                      `json:"podcastId"`
 	ID                 string                      `json:"id"`

@@ -15,11 +15,9 @@ import (
 	"podcast-summarizer/src/config"
 	"podcast-summarizer/src/core/app"
 	"podcast-summarizer/src/core/app/jobs"
-	"podcast-summarizer/src/core/domain"
 	lockinfra "podcast-summarizer/src/infra/lock"
 	mediainfra "podcast-summarizer/src/infra/media"
 	jobrepo "podcast-summarizer/src/repo/job"
-	paragraphrepo "podcast-summarizer/src/repo/paragraph"
 	podcastrepo "podcast-summarizer/src/repo/podcast"
 	processingrepo "podcast-summarizer/src/repo/processing"
 )
@@ -72,7 +70,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 // NewRouter returns a mux with dependencies.
 func NewRouter(deps Dependencies) http.Handler {
 	itunes := podcast.NewItunesClient()
-	var paragraphRepo domain.ParagraphRepository
 	var jobRepo jobs.JobRepository
 	var lock jobs.Locker
 
@@ -80,7 +77,6 @@ func NewRouter(deps Dependencies) http.Handler {
 		panic("api.NewRouter requires SQLite dependencies")
 	}
 	podcastRepo := podcastrepo.NewPodcastSQLiteRepo(deps.SQLite)
-	paragraphRepo = paragraphrepo.NewParagraphSQLiteRepo(deps.SQLite)
 	jobSQLiteRepo := jobrepo.NewJobSQLiteRepo(deps.SQLite)
 	jobRepo = jobSQLiteRepo
 	lock = lockinfra.NewSQLiteLock(deps.SQLite, 5*time.Minute)
@@ -101,14 +97,14 @@ func NewRouter(deps Dependencies) http.Handler {
 		summarizerClient = summarizer.NewHTTPSummarizer(deps.Config.SummarizeURL, deps.Config.SummarizeKey)
 	}
 
-	ingestSvc := app.NewIngestService(itunes, transcriptFetcher, podcastRepo, paragraphRepo)
+	ingestSvc := app.NewIngestService(itunes, transcriptFetcher, podcastRepo)
 	notifier := jobs.NewSSENotifier()
 	downloader := mediainfra.NewFileDownloader()
 	chunker := mediainfra.NewFFmpegChunker(deps.Config.FFMPEGPath)
 	transcriptProvider := jobs.NewPipelineTranscriptProvider(transcriptFetcher, downloader, chunker, transcriberClient)
 	summarySvc := jobs.NewClientSummaryService(summarizerClient)
 	storagePublisher := jobs.NewObjectStoragePublisher(deps.Storage)
-	jobManager := jobs.NewManagerWithArtifacts(jobRepo, lock, paragraphRepo, notifier, transcriptProvider, summarySvc, storagePublisher, processingRepo)
+	jobManager := jobs.NewManagerWithArtifacts(jobRepo, lock, notifier, transcriptProvider, summarySvc, storagePublisher, processingRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +127,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/resummarize") {
-			handlers.ResummarizeHandler(paragraphRepo, summarySvc)(w, r)
+			handlers.ResummarizeHandler(processingRepo, summarySvc)(w, r)
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/status") {
@@ -143,7 +139,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/export") {
-			handlers.ExportHandler(paragraphRepo)(w, r)
+			handlers.ExportHandler(processingRepo)(w, r)
 			return
 		}
 		if len(strings.Split(strings.Trim(r.URL.Path, "/"), "/")) == 3 {

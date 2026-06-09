@@ -131,6 +131,30 @@ what is displayed.
 - Users have permission to process the provided podcast content for personal use.
 - Long-running jobs may rely on background processing but must surface progress to the user.
 
+### Requirement Addendum - Demo Data Segment Upgrade
+
+- **Goal**: The local demo database must be upgraded so episodes processed with legacy paragraph rows are represented in the newer transcript/summary segment and mapping tables, and export must report missing podcast IDs consistently.
+- **Scope included**: A one-time update of `backend/data/podcast.db` from legacy `transcript_paragraph` and `summary_paragraph` rows into `transcript_segment`, `summary_segment`, and `transcript_summary_mapping`; backend export not-found behavior.
+- **Scope excluded**: Long-term legacy read compatibility code, reprocessing audio, live OpenAI calls, frontend redesign, Docker changes, or changes to job orchestration.
+- **Core flows**: A user opens the existing local demo podcast; the API returns transcript segments, summary segments, source mappings, and paragraphs through the current detail/view response without special compatibility reads. A user requests export for an unknown podcast ID; the API returns `404` instead of an empty successful export.
+- **Constraints**: The data update must be local-first and SQLite-only, idempotent for already-upgraded rows, must not require `OPENAI_API_KEY`, and must preserve existing legacy export data.
+- **Ambiguities or assumptions**: Existing legacy paragraph data is authoritative for the user’s local demo database. Legacy summaries are one-to-one with paragraph order because the old schema stored summaries against `transcript_paragraph` rows.
+- **Required capabilities**: Local SQLite CLI, local Go tests, and HTTP smoke checks against the user-running backend; no external network, credentials, or live podcast processing required.
+- **Implementation paths**: `backend/data/podcast.db`, `backend/src/api/handlers/export.go`, backend contract tests, and harness state files.
+- **Verification surface**: SQLite row counts proving segment and mapping rows were created from legacy data, HTTP detail/view checks against the existing local podcast showing non-empty segment arrays, export returns `404` for missing IDs, backend tests pass, and final root `./init.sh` passes.
+
+### Requirement Addendum - Legacy Paragraph Data Cleanup
+
+- **Goal**: The local-first backend must remove legacy table schemas and runtime dependencies after the current segment-model upgrade.
+- **Scope included**: Drop `podcast_source`, `transcript_paragraph`, and `summary_paragraph` from the local demo database and checked-in SQLite schema; update export and resummarize to read/write current `transcript_segment`, `summary_segment`, and `transcript_summary_mapping` data; stop the normal processing pipeline from writing legacy paragraph rows.
+- **Scope excluded**: Live OpenAI calls, frontend redesign, Docker changes, or compatibility fallback for old database layouts.
+- **Core flows**: A user opens or exports the existing local demo podcast after legacy rows are cleared; detail/view/export still work from current segment tables. A future new processing job persists current segment data without repopulating legacy paragraph rows.
+- **Constraints**: The cleanup must be SQLite-only, preserve the already-upgraded current segment data, remain deterministic without `OPENAI_API_KEY`, and keep tests fixture-backed.
+- **Ambiguities or assumptions**: The legacy schemas to remove are `podcast_source`, `transcript_paragraph`, and `summary_paragraph`. Current user-facing language may still say paragraph, but persistence should use current segment and mapping tables only.
+- **Required capabilities**: Local SQLite CLI, local Go tests, and final root recovery check.
+- **Implementation paths**: `backend/data/podcast.db`, SQLite schema files, backend API handlers/router, job manager, repository code, backend tests, and harness state files.
+- **Verification surface**: SQLite table listing showing legacy tables are absent and current segment/mapping rows remain, contract tests proving export works from current rows and missing export returns `404`, manager/integration tests proving legacy rows are not repopulated by the pipeline, and final `./init.sh`.
+
 ## Success Criteria *(mandatory)*
 
 <!--

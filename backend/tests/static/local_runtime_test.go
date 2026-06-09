@@ -83,6 +83,23 @@ func TestDocsDoNotAdvertiseRemoteStorageSetup(t *testing.T) {
 	}
 }
 
+func TestSQLiteSchemaDoesNotCreateLegacyTables(t *testing.T) {
+	repoRoot := findRepoRoot(t)
+	forbidden := []string{
+		"CREATE TABLE IF NOT EXISTS podcast_source",
+		"CREATE TABLE IF NOT EXISTS transcript_paragraph",
+		"CREATE TABLE IF NOT EXISTS summary_paragraph",
+	}
+	paths := []string{
+		filepath.Join(repoRoot, "backend", "src", "infra", "db", "sqlite.go"),
+		filepath.Join(repoRoot, "backend", "src", "repo", "migrations", "001_init.sql"),
+	}
+
+	for _, path := range paths {
+		assertFileDoesNotContain(t, path, forbidden)
+	}
+}
+
 func assertFileDoesNotContain(t *testing.T, path string, forbidden []string) {
 	t.Helper()
 	body, err := os.ReadFile(path)

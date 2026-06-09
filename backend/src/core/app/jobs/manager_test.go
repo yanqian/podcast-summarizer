@@ -16,7 +16,6 @@ import (
 	dbinfra "podcast-summarizer/src/infra/db"
 	storageinfra "podcast-summarizer/src/infra/storage"
 	jobrepo "podcast-summarizer/src/repo/job"
-	paragraphrepo "podcast-summarizer/src/repo/paragraph"
 	podcastrepo "podcast-summarizer/src/repo/podcast"
 	processingrepo "podcast-summarizer/src/repo/processing"
 )
@@ -33,7 +32,6 @@ func TestManagerStoresLocalAudioArtifactsAndPersistsChunkMetadata(t *testing.T) 
 
 	podcastID := createEpisode(t, db)
 	jobRepo := jobrepo.NewJobSQLiteRepo(db)
-	paragraphRepo := paragraphrepo.NewParagraphSQLiteRepo(db)
 	processingRepo := processingrepo.NewProcessingSQLiteRepo(db)
 	fixturesDir := t.TempDir()
 	storageRoot := filepath.Join(t.TempDir(), "storage")
@@ -46,10 +44,9 @@ func TestManagerStoresLocalAudioArtifactsAndPersistsChunkMetadata(t *testing.T) 
 	manager := jobs.NewManagerWithArtifacts(
 		jobRepo,
 		&allowLocker{},
-		paragraphRepo,
 		nil,
 		provider,
-		&mirrorSummary{},
+		jobs.NewClientSummaryService(&groupingSummaryClient{}),
 		jobs.NewObjectStoragePublisher(storageinfra.NewLocalUploader(storageRoot)),
 		processingRepo,
 	)
@@ -137,7 +134,6 @@ func TestManagerPersistsGroupedSummarySegmentsAndMappings(t *testing.T) {
 
 	podcastID := createEpisode(t, db)
 	jobRepo := jobrepo.NewJobSQLiteRepo(db)
-	paragraphRepo := paragraphrepo.NewParagraphSQLiteRepo(db)
 	processingRepo := processingrepo.NewProcessingSQLiteRepo(db)
 	fixturesDir := t.TempDir()
 	provider := jobs.NewPipelineTranscriptProvider(
@@ -149,7 +145,6 @@ func TestManagerPersistsGroupedSummarySegmentsAndMappings(t *testing.T) {
 	manager := jobs.NewManagerWithArtifacts(
 		jobRepo,
 		&allowLocker{},
-		paragraphRepo,
 		nil,
 		provider,
 		jobs.NewClientSummaryService(&groupingSummaryClient{}),
@@ -210,10 +205,9 @@ func TestManagerMarksJobFailedWhenChunkingFails(t *testing.T) {
 	manager := jobs.NewManagerWithArtifacts(
 		jobRepo,
 		&allowLocker{},
-		paragraphrepo.NewParagraphSQLiteRepo(db),
 		nil,
 		provider,
-		&mirrorSummary{},
+		jobs.NewClientSummaryService(&groupingSummaryClient{}),
 		jobs.NewObjectStoragePublisher(storageinfra.NewLocalUploader(filepath.Join(t.TempDir(), "storage"))),
 		processingRepo,
 	)
@@ -259,10 +253,9 @@ func TestManagerMarksJobFailedWhenTranscriptionFails(t *testing.T) {
 	manager := jobs.NewManagerWithArtifacts(
 		jobRepo,
 		&allowLocker{},
-		paragraphrepo.NewParagraphSQLiteRepo(db),
 		nil,
 		provider,
-		&mirrorSummary{},
+		jobs.NewClientSummaryService(&groupingSummaryClient{}),
 		jobs.NewObjectStoragePublisher(storageinfra.NewLocalUploader(filepath.Join(t.TempDir(), "storage"))),
 		processingRepo,
 	)
@@ -380,16 +373,6 @@ func (t *fixtureTranscriber) TranscribeFileDetailed(path string) (domain.Transcr
 		Provider: "fixture",
 		Model:    "fixture-model",
 	}, nil
-}
-
-type mirrorSummary struct{}
-
-func (s *mirrorSummary) Summarize(paragraphs []domain.Paragraph) ([]domain.Summary, error) {
-	summaries := make([]domain.Summary, len(paragraphs))
-	for idx, paragraph := range paragraphs {
-		summaries[idx] = domain.Summary{OrderIndex: paragraph.OrderIndex, Text: "summary " + paragraph.Text}
-	}
-	return summaries, nil
 }
 
 type groupingSummaryClient struct{}

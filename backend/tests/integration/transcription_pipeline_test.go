@@ -16,7 +16,6 @@ import (
 	dbinfra "podcast-summarizer/src/infra/db"
 	storageinfra "podcast-summarizer/src/infra/storage"
 	jobrepo "podcast-summarizer/src/repo/job"
-	paragraphrepo "podcast-summarizer/src/repo/paragraph"
 	podcastrepo "podcast-summarizer/src/repo/podcast"
 	processingrepo "podcast-summarizer/src/repo/processing"
 )
@@ -49,7 +48,6 @@ func TestPodcastProcessingPipelineStagesAndIdempotentArtifacts(t *testing.T) {
 	manager := jobs.NewManagerWithArtifacts(
 		jobRepo,
 		&integrationLocker{},
-		paragraphrepo.NewParagraphSQLiteRepo(db),
 		nil,
 		jobs.NewPipelineTranscriptProvider(
 			nil,

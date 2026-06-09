@@ -56,21 +56,6 @@ ON CONFLICT(podcast_url) DO UPDATE SET
 		return "", fmt.Errorf("sqlite upsert episode: %w", err)
 	}
 
-	const sourceQ = `
-INSERT INTO podcast_source (id, url, title, description, duration_seconds, audio_url, transcript_url, has_transcript, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-ON CONFLICT(url) DO UPDATE SET
-	title = excluded.title,
-	description = excluded.description,
-	duration_seconds = excluded.duration_seconds,
-	audio_url = excluded.audio_url,
-	transcript_url = excluded.transcript_url,
-	has_transcript = excluded.has_transcript,
-	updated_at = CURRENT_TIMESTAMP;`
-	if _, err := tx.ExecContext(context.Background(), sourceQ, id, url, title, description, durationSeconds, sqliteutil.NullableString(audioURL), sqliteutil.NullableString(transcriptURL), hasTranscript); err != nil {
-		return "", fmt.Errorf("sqlite upsert source: %w", err)
-	}
-
 	var sourceID string
 	if err := tx.QueryRowContext(context.Background(), `SELECT id FROM episode WHERE podcast_url = ?`, url).Scan(&sourceID); err != nil {
 		return "", fmt.Errorf("sqlite fetch source id: %w", err)
@@ -90,9 +75,6 @@ func (r *PodcastSQLiteRepo) MarkHasTranscript(id string) error {
 		_ = tx.Rollback()
 	}()
 	if _, err := tx.ExecContext(context.Background(), `UPDATE episode SET has_transcript = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(context.Background(), `UPDATE podcast_source SET has_transcript = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -179,14 +161,7 @@ func selectSourceID(tx *sql.Tx, url string) (string, error) {
 	if err != sql.ErrNoRows {
 		return "", err
 	}
-	err = tx.QueryRowContext(context.Background(), `SELECT id FROM podcast_source WHERE url = ?`, url).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if err == sql.ErrNoRows {
-		return "", nil
-	}
-	return "", err
+	return "", nil
 }
 
 func (r *PodcastSQLiteRepo) ListSources(limit int) ([]domain.PodcastSource, error) {

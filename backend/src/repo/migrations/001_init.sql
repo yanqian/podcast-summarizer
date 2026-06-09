@@ -4,19 +4,6 @@ PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 PRAGMA busy_timeout = 5000;
 
-CREATE TABLE IF NOT EXISTS podcast_source (
-    id TEXT PRIMARY KEY,
-    url TEXT NOT NULL UNIQUE,
-    title TEXT,
-    description TEXT,
-    duration_seconds INTEGER,
-    audio_url TEXT,
-    transcript_url TEXT,
-    has_transcript INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS episode (
     id TEXT PRIMARY KEY,
     podcast_url TEXT NOT NULL UNIQUE,
@@ -28,51 +15,6 @@ CREATE TABLE IF NOT EXISTS episode (
     has_transcript INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-INSERT OR IGNORE INTO episode (
-    id,
-    podcast_url,
-    title,
-    description,
-    duration_seconds,
-    audio_url,
-    transcript_url,
-    has_transcript,
-    created_at,
-    updated_at
-)
-SELECT
-    id,
-    url,
-    title,
-    description,
-    duration_seconds,
-    audio_url,
-    transcript_url,
-    has_transcript,
-    created_at,
-    updated_at
-FROM podcast_source
-;
-
-CREATE TABLE IF NOT EXISTS transcript_paragraph (
-    id TEXT PRIMARY KEY,
-    podcast_id TEXT NOT NULL REFERENCES episode(id) ON DELETE CASCADE,
-    order_index INTEGER NOT NULL,
-    text TEXT NOT NULL,
-    timestamp_seconds INTEGER,
-    source TEXT NOT NULL DEFAULT 'generated',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (podcast_id, order_index)
-);
-
-CREATE TABLE IF NOT EXISTS summary_paragraph (
-    id TEXT PRIMARY KEY,
-    transcript_paragraph_id TEXT NOT NULL REFERENCES transcript_paragraph(id) ON DELETE CASCADE,
-    summary_text TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (transcript_paragraph_id)
 );
 
 CREATE TABLE IF NOT EXISTS processing_job (

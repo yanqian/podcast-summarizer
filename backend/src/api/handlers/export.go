@@ -15,8 +15,13 @@ type exportResponse struct {
 	SummaryText    string `json:"summaryText"`
 }
 
+type ExportProcessingRepository interface {
+	ListTranscriptSegments(episodeID string) ([]domain.TranscriptSegment, error)
+	GetSummarySourceMappings(episodeID string) ([]domain.SummarySourceMapping, error)
+}
+
 // ExportHandler returns transcript and summary text bundles.
-func ExportHandler(repo domain.ParagraphRepository) http.HandlerFunc {
+func ExportHandler(repo ExportProcessingRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -28,12 +33,17 @@ func ExportHandler(repo domain.ParagraphRepository) http.HandlerFunc {
 			return
 		}
 		podcastID := parts[2]
-		aligned, err := repo.GetAligned(podcastID)
+		transcripts, err := repo.ListTranscriptSegments(podcastID)
+		if err != nil || len(transcripts) == 0 {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		summaryMappings, err := repo.GetSummarySourceMappings(podcastID)
 		if err != nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
-		transcriptText, summaryText := app.FormatTextBundle(aligned)
+		transcriptText, summaryText := app.FormatSegmentBundle(transcripts, summaryMappings)
 		resp := exportResponse{
 			PodcastID:      podcastID,
 			TranscriptText: transcriptText,

@@ -231,6 +231,48 @@
         "F010",
         "F011"
       ]
+    },
+    {
+      "id": "F013",
+      "title": "Upgrade local demo data to current segment model",
+      "description": "Update the local demo SQLite database so legacy transcript and summary paragraph rows are represented in current transcript segment, summary segment, and transcript-summary mapping tables, and make export return not found for missing podcast IDs.",
+      "acceptance": [
+        "Existing local backend/data/podcast.db legacy transcript_paragraph and summary_paragraph rows are copied into transcript_segment, summary_segment, and transcript_summary_mapping rows without requiring live OpenAI credentials.",
+        "GET /api/podcasts/{id} and /api/podcasts/{id}/view for the existing local demo podcast return non-empty transcriptSegments, summarySegments, paragraphs, and source mappings using current API reads without adding long-term legacy compatibility code.",
+        "GET /api/podcasts/{id}/export returns 404 for unknown podcast IDs or IDs with no transcript data instead of returning an empty successful export.",
+        "Backend tests cover export success and missing export behavior without live OpenAI credentials.",
+        "Root ./init.sh passes after the change."
+      ],
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F009",
+        "F011"
+      ]
+    },
+    {
+      "id": "F014",
+      "title": "Remove legacy SQLite table schemas",
+      "description": "Drop legacy podcast_source, transcript_paragraph, and summary_paragraph schemas from the local demo database and checked-in SQLite schema, then move export, resummarize, and runtime writes to the current transcript segment, summary segment, and mapping model.",
+      "acceptance": [
+        "Local backend/data/podcast.db no longer has podcast_source, transcript_paragraph, or summary_paragraph tables while retaining current episode, transcript_segment, summary_segment, and transcript_summary_mapping rows for the demo episode.",
+        "Fresh SQLite initialization no longer creates podcast_source, transcript_paragraph, or summary_paragraph.",
+        "GET /api/podcasts/{id}/export succeeds for the existing local demo podcast using current segment and mapping rows, not legacy paragraph rows.",
+        "GET /api/podcasts/{id}/export returns 404 for unknown podcast IDs or IDs with no current transcript segment data.",
+        "The normal processing pipeline no longer writes or depends on legacy paragraph tables.",
+        "Backend tests and root ./init.sh pass after the cleanup."
+      ],
+      "passes": true,
+      "status": "done",
+      "attempts": 1,
+      "last_error": "",
+      "priority": "P1",
+      "depends_on": [
+        "F013"
+      ]
     }
   ]
 }

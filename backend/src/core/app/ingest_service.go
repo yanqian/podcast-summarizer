@@ -12,10 +12,9 @@ import (
 
 // IngestService coordinates podcast lookup, transcript fetch, or audio download/transcription.
 type IngestService struct {
-	Lookup        domain.PodcastLookup
-	Fetcher       domain.TranscriptFetcher
-	Repo          domain.PodcastRepository
-	ParagraphRepo domain.ParagraphRepository
+	Lookup  domain.PodcastLookup
+	Fetcher domain.TranscriptFetcher
+	Repo    domain.PodcastRepository
 }
 
 type IngestResult struct {
@@ -25,8 +24,8 @@ type IngestResult struct {
 	Existing  bool
 }
 
-func NewIngestService(lookup domain.PodcastLookup, fetcher domain.TranscriptFetcher, repo domain.PodcastRepository, paraRepo domain.ParagraphRepository) *IngestService {
-	return &IngestService{Lookup: lookup, Fetcher: fetcher, Repo: repo, ParagraphRepo: paraRepo}
+func NewIngestService(lookup domain.PodcastLookup, fetcher domain.TranscriptFetcher, repo domain.PodcastRepository) *IngestService {
+	return &IngestService{Lookup: lookup, Fetcher: fetcher, Repo: repo}
 }
 
 // Ingest handles URL by extracting track ID, running lookup, and saving metadata; returns podcast ID.

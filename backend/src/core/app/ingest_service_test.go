@@ -54,7 +54,7 @@ func TestIngestReturnsExistingPodcastWithoutLookupOrUpsert(t *testing.T) {
 		},
 	}
 	lookup := &fakeLookup{}
-	svc := NewIngestService(lookup, nil, repo, nil)
+	svc := NewIngestService(lookup, nil, repo)
 
 	result, err := svc.Ingest(" https://example.com/episode.mp3 ")
 	if err != nil {
@@ -84,7 +84,7 @@ func TestIngestCreatesPodcastWhenURLIsNew(t *testing.T) {
 			AudioURL: "https://example.com/audio.mp3",
 		},
 	}
-	svc := NewIngestService(lookup, nil, repo, nil)
+	svc := NewIngestService(lookup, nil, repo)
 
 	result, err := svc.Ingest("https://podcasts.apple.com/us/podcast/demo/id1516093381?i=100")
 	if err != nil {

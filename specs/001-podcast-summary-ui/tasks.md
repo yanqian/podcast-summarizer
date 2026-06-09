@@ -50,7 +50,7 @@ regressions must be captured with targeted tests.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Create initial SQLite schema for podcast_source, transcript_paragraph, summary_paragraph, processing_job, and job_lock tables at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/migrations/001_init.sql
+- [X] T006 Create current SQLite schema for episode, processing_job, audio_chunk, transcript_segment, summary_segment, transcript_summary_mapping, and job_lock tables at /Users/yanqiang/Ai/podcast-summarizer/backend/src/repo/migrations/001_init.sql
 - [X] T007 Implement SQLite duplicate-job locking utilities at /Users/yanqiang/Ai/podcast-summarizer/backend/src/infra/lock/sqlite_lock.go
 - [X] T008 Set up HTTP router/middleware (logging, request validation, error mapping) at /Users/yanqiang/Ai/podcast-summarizer/backend/src/api/router.go
 - [X] T009 Define domain models and interfaces for repositories and transcription/summarization adapters at /Users/yanqiang/Ai/podcast-summarizer/backend/src/core/contracts.go

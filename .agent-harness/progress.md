@@ -28,6 +28,10 @@ F011 has been implemented and evaluator-accepted. The implementation adds a sele
 
 F012 has been implemented and evaluator-accepted. The implementation adds root Docker Compose for backend/frontend, container health checks, a `scripts/verify-docker-demo.sh` verifier, README/runbook updates for deterministic no-key demo mode and portfolio scope, and a static regression test for the local-only Docker demo. An orchestrator-dispatched evaluator provider ran the documented Docker Compose demo verifier successfully against the local Colima Docker API, proving backend health, backend podcast list, frontend health, and automatic cleanup.
 
+F013 has been implemented and evaluator-accepted via manual fallback. The existing local `backend/data/podcast.db` demo data was upgraded from 20 legacy transcript/summary paragraph rows into 20 transcript segments, 20 summary segments, and 20 transcript-summary mappings, with a pre-upgrade backup at `backend/data/podcast.db.pre-f013-backup`. The export endpoint now returns `404` for unknown or transcript-empty podcast IDs. Long-term legacy read compatibility code was intentionally not added.
+
+F014 has been implemented and evaluator-accepted via manual fallback. Legacy SQLite table schemas (`podcast_source`, `transcript_paragraph`, and `summary_paragraph`) were removed from checked-in SQLite initialization and dropped from the local demo database after preserving current segment/mapping data. Export and resummarize now use current transcript/summary segment tables, and the normal pipeline no longer writes legacy paragraph rows.
+
 The rewrite direction is:
 
 - Local-first portfolio/demo application.
@@ -40,7 +44,7 @@ The rewrite direction is:
 
 ## Last Completed Feature
 
-F012 Polish local Docker demo and documentation.
+F014 Remove legacy SQLite table schemas.
 
 ## Next Feature
 

@@ -32,12 +32,6 @@ type PodcastRepository interface {
 	ListSources(limit int) ([]PodcastSource, error)
 }
 
-type ParagraphRepository interface {
-	SaveTranscript(podcastID string, paragraphs []Paragraph) error
-	SaveSummaries(podcastID string, summaries []Summary) error
-	GetAligned(podcastID string) ([]ParagraphWithSummary, error)
-}
-
 type JobRepository interface {
 	Create(job ProcessingJob) (string, error)
 	UpdateStatus(id, status string, durationMs *int, errorMessage *string) error
@@ -52,12 +46,6 @@ type Paragraph struct {
 type Summary struct {
 	OrderIndex int
 	Text       string
-}
-
-type ParagraphWithSummary struct {
-	OrderIndex int
-	Text       string
-	Summary    string
 }
 
 type PodcastMetadata struct {

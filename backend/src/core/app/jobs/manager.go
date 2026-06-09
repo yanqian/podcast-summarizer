@@ -30,12 +30,6 @@ type Locker interface {
 	Release(ctx context.Context, key string) error
 }
 
-// ParagraphSaver persists transcript/summaries.
-type ParagraphSaver interface {
-	SaveTranscript(podcastID string, paragraphs []domain.Paragraph) error
-	SaveSummaries(podcastID string, summaries []domain.Summary) error
-}
-
 // TranscriptOutput contains transcript paragraphs and generated audio artifacts.
 type TranscriptOutput struct {
 	Paragraphs   []domain.Paragraph
@@ -129,7 +123,6 @@ type ObjectUploader interface {
 type Manager struct {
 	jobRepo            JobRepository
 	lock               Locker
-	paras              ParagraphSaver
 	notifier           Notifier
 	transcript         TranscriptProvider
 	summary            SummaryService
@@ -140,11 +133,11 @@ type Manager struct {
 	summarySegments    SummarySegmentRepository
 }
 
-func NewManager(jobRepo JobRepository, lock Locker, paras ParagraphSaver, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher) *Manager {
-	return NewManagerWithArtifacts(jobRepo, lock, paras, notifier, transcript, summary, storage, nil)
+func NewManager(jobRepo JobRepository, lock Locker, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher) *Manager {
+	return NewManagerWithArtifacts(jobRepo, lock, notifier, transcript, summary, storage, nil)
 }
 
-func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, paras ParagraphSaver, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher, audioChunks AudioChunkRepository) *Manager {
+func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, notifier Notifier, transcript TranscriptProvider, summary SummaryService, storage StoragePublisher, audioChunks AudioChunkRepository) *Manager {
 	var transcriptSegments TranscriptSegmentRepository
 	if repo, ok := audioChunks.(TranscriptSegmentRepository); ok {
 		transcriptSegments = repo
@@ -160,7 +153,6 @@ func NewManagerWithArtifacts(jobRepo JobRepository, lock Locker, paras Paragraph
 	return &Manager{
 		jobRepo:            jobRepo,
 		lock:               lock,
-		paras:              paras,
 		notifier:           notifier,
 		transcript:         transcript,
 		summary:            summary,
@@ -201,12 +193,10 @@ func (m *Manager) StartStubJob(ctx context.Context, podcastID string) (string, e
 			time.Sleep(300 * time.Millisecond)
 		}
 		// Save placeholder paragraphs/summaries
-		_ = m.paras.SaveTranscript(podcastID, []domain.Paragraph{
-			{OrderIndex: 1, Text: "Placeholder transcript chunk"},
-		})
-		_ = m.paras.SaveSummaries(podcastID, []domain.Summary{
-			{OrderIndex: 1, Text: "Placeholder summary"},
-		})
+		segments, err := m.saveTranscriptSegments(podcastID, TranscriptOutput{Paragraphs: []domain.Paragraph{{OrderIndex: 1, Text: "Placeholder transcript chunk"}}}, nil)
+		if err == nil {
+			_ = m.saveSummarySegments(context.Background(), podcastID, segments)
+		}
 		// Mark done
 		duration := int(time.Since(start).Milliseconds())
 		_ = m.jobRepo.UpdateStatus(jobID, "succeeded", &duration, nil)
@@ -301,11 +291,6 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 			}
 		}
 
-		if err := m.paras.SaveTranscript(podcastID, output.Paragraphs); err != nil {
-			m.failJob(jobID, ch, start, fmt.Sprintf("save transcript failed: %v", err))
-			log.Printf("%s save transcript failed: %v", logPrefix, err)
-			return
-		}
 		savedSegments, err := m.saveTranscriptSegments(podcastID, output, storedChunks)
 		if err != nil {
 			m.failJob(jobID, ch, start, fmt.Sprintf("save transcript segments failed: %v", err))
@@ -317,22 +302,6 @@ func (m *Manager) StartJob(ctx context.Context, podcastID string, audioURL strin
 		if m.summary == nil {
 			m.failJob(jobID, ch, start, "summarization failed: no summary service configured")
 			log.Printf("%s summarization failed: no summary service configured", logPrefix)
-			return
-		}
-		summaryModels, err := m.summary.Summarize(output.Paragraphs)
-		if err != nil {
-			m.failJob(jobID, ch, start, fmt.Sprintf("summarization failed: %v", err))
-			log.Printf("%s summarization failed: %v", logPrefix, err)
-			return
-		}
-		if len(summaryModels) == 0 {
-			m.failJob(jobID, ch, start, "summarization failed: summary service returned no summaries")
-			log.Printf("%s summarization failed: summary service returned no summaries", logPrefix)
-			return
-		}
-		if err := m.paras.SaveSummaries(podcastID, summaryModels); err != nil {
-			m.failJob(jobID, ch, start, fmt.Sprintf("save summaries failed: %v", err))
-			log.Printf("%s save summaries failed: %v", logPrefix, err)
 			return
 		}
 		if err := m.saveSummarySegments(jobCtx, podcastID, savedSegments); err != nil {
@@ -453,7 +422,7 @@ func (m *Manager) storeAudioArtifacts(ctx context.Context, podcastID, jobID, ori
 
 func (m *Manager) saveTranscriptSegments(podcastID string, output TranscriptOutput, chunks []domain.AudioChunk) ([]domain.TranscriptSegment, error) {
 	if m.transcriptSegments == nil {
-		return nil, nil
+		return nil, fmt.Errorf("transcript segment repository is not configured")
 	}
 	segments := output.Segments
 	if len(segments) == 0 {
@@ -485,7 +454,7 @@ func (m *Manager) saveTranscriptSegments(podcastID string, output TranscriptOutp
 
 func (m *Manager) saveSummarySegments(ctx context.Context, podcastID string, transcripts []domain.TranscriptSegment) error {
 	if m.transcriptSummary == nil || m.summarySegments == nil || len(transcripts) == 0 {
-		return nil
+		return fmt.Errorf("summary segment persistence is not configured")
 	}
 	result, err := m.transcriptSummary.SummarizeSegments(ctx, transcripts)
 	if err != nil {
