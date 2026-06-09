@@ -12,36 +12,7 @@ The default path is intentionally simple: run it on one machine, store data in `
 
 ## Architecture
 
-```mermaid
-flowchart TB
-  UI["React frontend: Demo + Admin"] -->|"HTTP API"| API["Go API handlers"]
-
-  API --> Ingest["Ingest podcast URL"]
-  API --> Reads["Episode list, detail, and status"]
-  API --> Jobs["Local processing job manager"]
-
-  Ingest --> ITunes["Podcast metadata lookup"]
-  Ingest --> Repos["SQLite repositories"]
-  Reads --> Repos
-
-  Jobs --> TranscriptPipeline["Transcript pipeline"]
-  Jobs --> SummaryPipeline["Summary generation"]
-  Jobs --> Repos
-  Jobs --> LocalStorage["backend/data/storage"]
-
-  Repos --> LocalDB["backend/data/podcast.db"]
-
-  TranscriptPipeline --> TranscriptFetch["Optional transcript fetch"]
-  TranscriptPipeline --> Downloader["Download audio"]
-  Downloader --> LocalStorage
-  TranscriptPipeline --> FFmpeg["ffmpeg chunker"]
-  FFmpeg --> LocalStorage
-  TranscriptPipeline --> Transcriber["Transcription adapter: OpenAI or no-key stub"]
-
-  SummaryPipeline --> SummaryClient["Summary adapter: OpenAI or no-key stub"]
-  SummaryPipeline --> Mappings["Transcript-summary mappings"]
-  Mappings --> Repos
-```
+![Podcast Summarizer architecture](docs/assets/architecture.svg)
 
 ## Project layout
 - `backend/`: Go services, adapters, infra, and jobs; entrypoint at `cmd/server`.
