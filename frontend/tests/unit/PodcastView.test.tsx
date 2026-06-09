@@ -46,7 +46,7 @@ describe('PodcastView', () => {
     expect(screen.getByText('Select an episode to view transcript segments and mapped summaries.')).toBeTruthy();
   });
 
-  it('fetches episode detail and renders transcript groups beside mapped summaries', async () => {
+  it('fetches episode detail and renders transcript sections beside mapped summaries', async () => {
     const fetchMock = mockFetch([
       jsonResponse({
         podcastId: 'pod-1',
@@ -75,7 +75,7 @@ describe('PodcastView', () => {
     render(<PodcastView selectedPodcast={selectedPodcast} />);
 
     expect(screen.getByText('Loading episode detail...')).toBeTruthy();
-    await screen.findByText('Transcript group 1');
+    expect(await screen.findAllByText('Transcript')).toHaveLength(2);
 
     expect(screen.getByText('The host introduces local podcast processing.')).toBeTruthy();
     expect(screen.getByText('The guest explains grouped summaries.')).toBeTruthy();

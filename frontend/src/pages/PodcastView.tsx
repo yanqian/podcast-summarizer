@@ -186,12 +186,12 @@ export function PodcastView({ selectedPodcast }: Props) {
 
       {requestState === 'ready' && hasTranscript && (
         <div className="space-y-4">
-          {groups.map((group, index) => (
+          {groups.map((group) => (
             <article key={group.key} className="grid gap-3 rounded border border-slate-200 p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(220px,0.8fr)]">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
                   <FileText aria-hidden="true" className="h-4 w-4" />
-                  Transcript group {index + 1}
+                  Transcript
                 </div>
                 <div className="space-y-3">
                   {group.transcripts.map((segment) => (
