@@ -14,26 +14,33 @@ The default path is intentionally simple: run it on one machine, store data in `
 
 ```mermaid
 flowchart TB
-  UI["React frontend"] -->|"HTTP"| API["Go API handlers"]
+  UI["React frontend: Demo + Admin"] -->|"HTTP API"| API["Go API handlers"]
 
   API --> Ingest["Ingest podcast URL"]
-  API --> Jobs["Process transcript job"]
+  API --> Reads["Episode list, detail, and status"]
+  API --> Jobs["Local processing job manager"]
 
   Ingest --> ITunes["Podcast metadata lookup"]
   Ingest --> Repos["SQLite repositories"]
+  Reads --> Repos
 
   Jobs --> TranscriptPipeline["Transcript pipeline"]
-  Jobs --> SummarySvc["Summary pipeline"]
+  Jobs --> SummaryPipeline["Summary generation"]
   Jobs --> Repos
+  Jobs --> LocalStorage["backend/data/storage"]
 
   Repos --> LocalDB["backend/data/podcast.db"]
 
-  TranscriptPipeline --> TranscriptFetch["Fetch existing transcript"]
+  TranscriptPipeline --> TranscriptFetch["Optional transcript fetch"]
   TranscriptPipeline --> Downloader["Download audio"]
+  Downloader --> LocalStorage
   TranscriptPipeline --> FFmpeg["ffmpeg chunker"]
-  TranscriptPipeline --> Transcriber["Transcription adapter"]
+  FFmpeg --> LocalStorage
+  TranscriptPipeline --> Transcriber["Transcription adapter: OpenAI or no-key stub"]
 
-  SummarySvc --> SummaryClient["Summary adapter"]
+  SummaryPipeline --> SummaryClient["Summary adapter: OpenAI or no-key stub"]
+  SummaryPipeline --> Mappings["Transcript-summary mappings"]
+  Mappings --> Repos
 ```
 
 ## Project layout
