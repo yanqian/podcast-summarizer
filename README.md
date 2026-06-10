@@ -10,6 +10,10 @@ The default path is intentionally simple: run it on one machine, store data in `
 - Two-screen portfolio UI with a read-only Demo viewer and a local Admin submission/status screen.
 - Adapter boundaries for transcription, summarization, media chunking, local artifact storage, and podcast metadata lookup.
 
+## Project reflection
+
+I wrote a short reflection on what this project taught me about AI summarization as a product problem: [A Podcast Summarizer Taught Me That Summaries Are Not Understanding](https://yanqian.github.io/posts/publish/a-podcast-summarizer-taught-me-that-summaries-are-not-understanding/).
+
 ## Architecture
 
 ![Podcast Summarizer architecture](docs/assets/architecture.svg)
