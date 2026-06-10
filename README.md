@@ -14,6 +14,12 @@ The default path is intentionally simple: run it on one machine, store data in `
 
 I wrote a short reflection on what this project taught me about AI summarization as a product problem: [A Podcast Summarizer Taught Me That Summaries Are Not Understanding](https://yanqian.github.io/posts/publish/a-podcast-summarizer-taught-me-that-summaries-are-not-understanding/).
 
+## Screenshots
+
+| Demo transcript and summary viewer | Admin processing status screen |
+| --- | --- |
+| ![Demo transcript and summary viewer](docs/assets/screenshots/demo-viewer.png) | ![Admin processing status screen](docs/assets/screenshots/admin-status.png) |
+
 ## Architecture
 
 ![Podcast Summarizer architecture](docs/assets/architecture.svg)
